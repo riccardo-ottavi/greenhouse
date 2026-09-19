@@ -18,4 +18,5 @@ export type Sensor = {
     samplingInterval: number;
     currentValue: number;
     lastUpdate: Date;
+    zoneId: number;
 }
