@@ -4,7 +4,7 @@ export type AlertType =
 
 export type Alert = {
   id: number;
-  sensorId: string;
+  sensorId: number;
   type: AlertType;
   message: string;
   timestamp: Date;
