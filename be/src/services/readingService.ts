@@ -11,3 +11,9 @@ export function getReadingById(id: number){
         return reading.id === id
     })  
 }
+
+export function getReadingsBySensorId(id: number){
+    return readings.filter((reading)=>{
+        return reading.sensorId === id
+    })
+}
