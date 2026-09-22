@@ -7,7 +7,13 @@ export function getAllReadings(){
 }
 
 export function getReadingById(id: number){
-    return readings.find((sensor) => {
-        return sensor.id === id
+    return readings.find((reading) => {
+        return reading.id === id
     })  
+}
+
+export function getReadingsBySensorId(id: number){
+    return readings.filter((reading)=>{
+        return reading.sensorId === id
+    })
 }
