@@ -1,9 +1,12 @@
 import express from "express";
-const app = express();
-const sensorRouter = require('./routes/sensorRouter');
 
+const app = express();
+
+const sensorRouter = require('./routes/sensorRouter');
+const readingRouter = require('./routes/readingRouter')
 
 app.use("/sensors", sensorRouter);
+app.use("/readings", readingRouter);
 
 app.get("/", (req, res) => {
   res.send("<h1>Greenhouse Monitoring System Homepage</h1>");
