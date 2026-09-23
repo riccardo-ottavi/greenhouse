@@ -29,6 +29,16 @@ export const sensors: Sensor[] = [{
     samplingInterval: 5,
     currentValue: 40,
     lastUpdate: new Date(),
-    zoneId: 1
-}
+    zoneId: 1,
+},
+{
+    id: 4,
+    name: "LIGHT-001",
+    type: "LIGHT",
+    status: "ONLINE",
+    samplingInterval: 5,
+    currentValue: 20000,
+    lastUpdate: new Date(),
+    zoneId: 1,
+},
 ]
