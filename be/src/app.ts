@@ -1,6 +1,6 @@
 import express from "express";
 import { sensors } from "./data/sensors";
-import { createReading, generateNextValue } from "./services/simulationService";
+import { createReading, generateNextValue, simulateSensor } from "./services/simulationService";
 
 const app = express();
 
@@ -16,5 +16,5 @@ app.get("/", (req, res) => {
 
 app.listen(3000, () => {
   console.log("Server running on port 3000");
-  generateNextValue(sensors[0]);
+  simulateSensor(sensors[0]);
 });
