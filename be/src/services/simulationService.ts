@@ -3,7 +3,9 @@ import { ReadingUnit } from "../types/Reading";
 import { Sensor } from "../types/Sensor";
 
 export function simulateSensor(sensor: Sensor){
-    createReading(sensor, generateNextValue(sensor));
+    setInterval(() => {
+        createReading(sensor, generateNextValue(sensor));
+    }, sensor.samplingInterval * 1000)
 }
 
 function randomVariation(min: number, max: number) {
@@ -50,6 +52,8 @@ export function createReading(sensor: Sensor, newValue: number) {
             valueUnit = "lux";
             break;
     }
+
+    sensor.lastUpdate = new Date;
 
     readings.push({
         id: nextReadingId,

@@ -15,6 +15,7 @@ app.get("/", (req, res) => {
 });
 
 app.listen(3000, () => {
+  //todo: manca il sensore della luce!!!!!!!!
   console.log("Server running on port 3000");
-  simulateSensor(sensors[0]);
+  sensors.forEach(sensor => simulateSensor(sensor));
 });
