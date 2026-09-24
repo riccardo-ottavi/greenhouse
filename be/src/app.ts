@@ -1,6 +1,4 @@
 import express from "express";
-import { sensors } from "./data/sensors";
-import { createReading, generateNextValue, simulateSensor } from "./services/simulationService";
 
 const app = express();
 
@@ -15,7 +13,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(3000, () => {
-  //todo: manca il sensore della luce!!!!!!!!
   console.log("Server running on port 3000");
-  sensors.forEach(sensor => simulateSensor(sensor));
 });
