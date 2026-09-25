@@ -1,5 +1,50 @@
-function runSimulation(){
+const sensors = [
+    {
+        id: 1,
+        type: "TEMPERATURE",
+        currentValue: 23.5,
+        unit: "°C"
+    },
+    {
+        id: 2,
+        type: "HUMIDITY",
+        currentValue: 65,
+        unit: "%"
+    },
+    {
+        id: 3,
+        type: "SOIL_MOISTURE",
+        currentValue: 40,
+        unit: "%"
+    },
+    {
+        id: 4,
+        type: "LIGHT",
+        currentValue: 750,
+        unit: "lux"
+    }
+];
 
+function runSimulation() {
+
+    sensors.forEach(async (sensor) => {
+
+        const value = generateNextValue(sensor);
+
+        try {
+            const reading = await sendReading(sensor, value);
+
+            console.log(
+                `${sensor.type} - Reading sent:`,
+                reading
+            );
+        } catch (error) {
+            console.error(
+                `${sensor.type} - Error sending reading:`,
+                error
+            );
+        }
+    });
 }
 
 function randomVariation(min, max) {
@@ -32,7 +77,8 @@ async function sendReading(sensor, value) {
         body: JSON.stringify({
             sensorId: sensor.id,
             value: value,
-            unit: sensor.unit,
+            //Todo: non dovresti mandare l'unità probabilmente ma dovresti dedurla nel backend im base al tipo
+            unit: sensor.unit, 
             timestamp: new Date().toISOString()
         })
     });
@@ -44,17 +90,5 @@ async function sendReading(sensor, value) {
     return await response.json();
 }
 
-const sensor = {
-    id: 1,
-    type: "TEMPERATURE",
-    currentValue: 230.5,
-    unit: "°C"
-};
-
-sendReading(sensor, 240.2)
-    .then((reading) => {
-        console.log("Reading sent:", reading);
-    })
-    .catch((error) => {
-        console.error("Error:", error);
-    });
+//todo: metti l'interval che la ripete
+runSimulation();
