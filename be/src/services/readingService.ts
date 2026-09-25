@@ -50,7 +50,7 @@ export async function createReading(
       reading.sensorId,
       reading.value,
       reading.unit,
-      reading.timestamp
+      new Date(reading.timestamp)
     ]
   );
 

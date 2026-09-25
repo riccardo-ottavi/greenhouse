@@ -5,6 +5,8 @@ const app = express();
 const sensorRouter = require('./routes/sensorRouter');
 const readingRouter = require('./routes/readingRouter')
 
+app.use(express.json());
+
 app.use("/sensors", sensorRouter);
 app.use("/readings", readingRouter);
 
