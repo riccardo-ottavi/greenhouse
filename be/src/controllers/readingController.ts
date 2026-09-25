@@ -1,40 +1,47 @@
-import { getAllReadings, getReadingById, getReadingsBySensorId} from "../services/readingService";
+import { createReading, getAllReadings, getReadingById } from "../services/readingService";
 import { Request, Response } from "express";
 
-export function index(req: Request, res: Response) {
+export async function index(req: Request, res: Response) {
+  try {
+    const readings = await getAllReadings();
 
-    try {
+    res.json(readings);
+  }
+  catch (err) {
 
-        const sensorId = req.params.sensorId;
+    console.error(err);
 
-        if (sensorId) {
-            const readings = getReadingsBySensorId(Number(sensorId));
-            return res.json(readings);
-        }
+    res.status(500).json({ message: "Couldn't get readings" });
 
-        const readings = getAllReadings();
-
-        res.json(readings);
-
-    }
-    catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({ message: "Couldn't get readings" });
-
-    }
+  }
 
 }
 
-export function show(req: Request, res: Response) {
-    try {
-        const id = Number(req.params.id);
-        const reading = getReadingById(id);
-        res.json(reading);
-    }
-    catch(err){
-        console.error(err);
-        res.status(500).json({message: "Couldn't get reading's data"})
-    }
+export async function show(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const reading = await getReadingById(id);
+    res.json(reading);
+  }
+  catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Couldn't get reading's data" })
+  }
+}
+
+export async function create(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const reading = await createReading(req.body);
+
+    res.status(201).json(reading);
+  } catch (error) {
+    console.error("Error creating reading:", error);
+
+    res.status(500).json({
+      message: "Failed to create reading"
+    });
+  }
 }
