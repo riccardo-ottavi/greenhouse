@@ -3,25 +3,21 @@ const sensors = [
         id: 1,
         type: "TEMPERATURE",
         currentValue: 23.5,
-        unit: "°C"
     },
     {
         id: 2,
         type: "HUMIDITY",
         currentValue: 65,
-        unit: "%"
     },
     {
         id: 3,
         type: "SOIL_MOISTURE",
         currentValue: 40,
-        unit: "%"
     },
     {
         id: 4,
         type: "LIGHT",
         currentValue: 750,
-        unit: "lux"
     }
 ];
 
@@ -77,8 +73,6 @@ async function sendReading(sensor, value) {
         body: JSON.stringify({
             sensorId: sensor.id,
             value: value,
-            //Todo: non dovresti mandare l'unità probabilmente ma dovresti dedurla nel backend im base al tipo
-            unit: sensor.unit, 
             timestamp: new Date().toISOString()
         })
     });

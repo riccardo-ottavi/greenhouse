@@ -1,5 +1,6 @@
 import { db } from "../database/connection.js";
-import { Reading } from "../types/Reading.js";
+import { Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
+import { SensorType } from "../types/Sensor.js";
 
 export async function getAllReadings(){
     const [rows] = await db.query(
@@ -37,8 +38,35 @@ export async function getReadingById(id: number){
 }
 
 export async function createReading(
-  reading: Omit<Reading, "id">
+  input: ReadingInput
 ): Promise<Reading> {
+
+  const [sensorRows] = await db.query(
+    `
+      SELECT
+        id,
+        type
+      FROM sensors
+      WHERE id = ?
+    `,
+    [input.sensorId]
+  );
+
+  const sensors = sensorRows as { id: number; type: SensorType }[];
+
+  const sensor = sensors[0];
+
+  if (!sensor) {
+    throw new Error("Sensor not found");
+  }
+
+  const unit = getUnitFromSensorType(sensor.type);
+  const timestamp = input.timestamp ? new Date(input.timestamp) : new Date();
+
+  if (Number.isNaN(timestamp.getTime())) {
+    throw new Error("Invalid reading timestamp");
+  }
+
   const [result] = await db.query(
     `
       INSERT INTO readings
@@ -47,10 +75,10 @@ export async function createReading(
         (?, ?, ?, ?)
     `,
     [
-      reading.sensorId,
-      reading.value,
-      reading.unit,
-      new Date(reading.timestamp)
+      input.sensorId,
+      input.value,
+      unit,
+      timestamp
     ]
   );
 
@@ -58,6 +86,27 @@ export async function createReading(
 
   return {
     id: insertResult.insertId,
-    ...reading
+    sensorId: input.sensorId,
+    value: input.value,
+    unit: unit,
+    timestamp
   };
+}
+
+function getUnitFromSensorType(type: SensorType): ReadingUnit {
+  switch (type) {
+    case "TEMPERATURE":
+      return "°C";
+
+    case "HUMIDITY":
+      return "%";
+
+    case "SOIL_MOISTURE":
+      return "%";
+
+    case "LIGHT":
+      return "lux";
+    default:
+      throw new Error("Unsupported sensor type");
+  }
 }
