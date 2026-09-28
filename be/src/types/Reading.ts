@@ -3,7 +3,7 @@ export type ReadingUnit = "°C" | "%" | "lux";
 export type ReadingInput = {
     sensorId: number;
     value: number;
-    timestamp?: string | Date;
+    timestamp: string;
 };
 
 export type Reading = {

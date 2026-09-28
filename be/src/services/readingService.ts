@@ -38,7 +38,7 @@ export async function getReadingById(id: number) {
 }
 
 export async function createReading(
-  reading: Omit<Reading, "id">
+  reading: ReadingInput
 ): Promise<Reading> {
 
   const [sensorRows] = await db.query(
@@ -104,7 +104,7 @@ export async function createReading(
     sensorId: reading.sensorId,
     value: reading.value,
     unit: unit,
-    timestamp: reading.timestamp
+    timestamp: new Date(reading.timestamp)
   };
 }
 
