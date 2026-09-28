@@ -38,10 +38,48 @@ export async function create(
 
     res.status(201).json(reading);
   } catch (error) {
-    console.error("Error creating reading:", error);
+  console.error("Error creating reading:", error);
 
-    res.status(500).json({
-      message: "Failed to create reading"
-    });
+  if (error instanceof Error) {
+
+    if (error.message === "Sensor not found") {
+      res.status(404).json({
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message === "Invalid temperature value") {
+      res.status(400).json({
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message === "Invalid humidity value") {
+      res.status(400).json({
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message === "Invalid soil moisture value") {
+      res.status(400).json({
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message === "Invalid light value") {
+      res.status(400).json({
+        message: error.message
+      });
+      return;
+    }
   }
+
+  res.status(500).json({
+    message: "Failed to create reading"
+  });
+}
 }
