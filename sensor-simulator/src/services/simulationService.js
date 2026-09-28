@@ -83,6 +83,10 @@ async function sendReading(sensor, value) {
 
     return await response.json();
 }
+const SIMULATION_INTERVAL = 5000;
 
-//todo: metti l'interval che la ripete
 runSimulation();
+
+setInterval(() => {
+    runSimulation();
+}, SIMULATION_INTERVAL);
