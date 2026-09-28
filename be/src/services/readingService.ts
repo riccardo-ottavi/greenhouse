@@ -38,7 +38,7 @@ export async function getReadingById(id: number){
 }
 
 export async function createReading(
-  input: ReadingInput
+  reading: Omit<Reading, "id">
 ): Promise<Reading> {
 
   const [sensorRows] = await db.query(
@@ -49,10 +49,13 @@ export async function createReading(
       FROM sensors
       WHERE id = ?
     `,
-    [input.sensorId]
+    [reading.sensorId]
   );
 
-  const sensors = sensorRows as { id: number; type: SensorType }[];
+  const sensors = sensorRows as {
+    id: number;
+    type: SensorType;
+  }[];
 
   const sensor = sensors[0];
 
@@ -61,35 +64,45 @@ export async function createReading(
   }
 
   const unit = getUnitFromSensorType(sensor.type);
-  const timestamp = input.timestamp ? new Date(input.timestamp) : new Date();
-
-  if (Number.isNaN(timestamp.getTime())) {
-    throw new Error("Invalid reading timestamp");
-  }
 
   const [result] = await db.query(
     `
       INSERT INTO readings
         (sensor_id, value, unit, timestamp)
-      VALUES
-        (?, ?, ?, ?)
-    `,
+    VALUES
+      (?, ?, ?, ?)
+  `,
     [
-      input.sensorId,
-      input.value,
+      reading.sensorId,
+      reading.value,
       unit,
-      timestamp
+      new Date(reading.timestamp)
     ]
   );
 
   const insertResult = result as { insertId: number };
 
+  await db.query(
+    `
+      UPDATE sensors
+      SET
+        current_value = ?,
+        last_update = ?
+      WHERE id = ?
+    `,
+    [
+      reading.value,
+      new Date(reading.timestamp),
+      reading.sensorId
+    ]
+  );
+
   return {
     id: insertResult.insertId,
-    sensorId: input.sensorId,
-    value: input.value,
+    sensorId: reading.sensorId,
+    value: reading.value,
     unit: unit,
-    timestamp
+    timestamp: reading.timestamp
   };
 }
 
