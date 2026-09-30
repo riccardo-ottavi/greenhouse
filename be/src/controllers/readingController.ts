@@ -1,4 +1,4 @@
-import { createReading, getAllReadings, getReadingById } from "../services/readingService";
+import { createReading, getAllReadings, getReadingById, getReadingsBySensorId } from "../services/readingService";
 import { Request, Response } from "express";
 
 export async function index(
@@ -29,4 +29,15 @@ export async function create(
   const reading = await createReading(req.body);
 
   res.status(201).json(reading);
+}
+
+export async function getBySensorId(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const sensorId = Number(req.params.sensorId);
+
+  const readings = await getReadingsBySensorId(sensorId);
+
+  res.json(readings);
 }
