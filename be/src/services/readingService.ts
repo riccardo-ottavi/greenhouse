@@ -157,3 +157,24 @@ function getUnitFromSensorType(type: SensorType): ReadingUnit {
       throw new Error("Unsupported sensor type");
   }
 }
+
+export async function getReadingsBySensorId(
+  sensorId: number
+): Promise<Reading[]> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        id,
+        sensor_id AS sensorId,
+        value,
+        unit,
+        timestamp
+      FROM readings
+      WHERE sensor_id = ?
+      ORDER BY timestamp DESC
+    `,
+    [sensorId]
+  );
+
+  return rows as Reading[];
+}
