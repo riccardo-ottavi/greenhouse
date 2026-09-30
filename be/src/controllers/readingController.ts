@@ -1,5 +1,6 @@
 import { createReading, getAllReadings, getReadingById } from "../services/readingService";
 import { Request, Response } from "express";
+import { AppError } from "../errors/AppError.js";
 
 export async function index(req: Request, res: Response) {
   try {
@@ -40,42 +41,12 @@ export async function create(
   } catch (error) {
   console.error("Error creating reading:", error);
 
-  if (error instanceof Error) {
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({
+      message: error.message
+    });
 
-    if (error.message === "Sensor not found") {
-      res.status(404).json({
-        message: error.message
-      });
-      return;
-    }
-
-    if (error.message === "Invalid temperature value") {
-      res.status(400).json({
-        message: error.message
-      });
-      return;
-    }
-
-    if (error.message === "Invalid humidity value") {
-      res.status(400).json({
-        message: error.message
-      });
-      return;
-    }
-
-    if (error.message === "Invalid soil moisture value") {
-      res.status(400).json({
-        message: error.message
-      });
-      return;
-    }
-
-    if (error.message === "Invalid light value") {
-      res.status(400).json({
-        message: error.message
-      });
-      return;
-    }
+    return;
   }
 
   res.status(500).json({
