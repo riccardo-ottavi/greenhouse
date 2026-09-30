@@ -51,17 +51,25 @@ function generateNextValue(sensor) {
     switch (sensor.type) {
         case "TEMPERATURE":
             sensor.currentValue += randomVariation(-0.5, 0.5);
-            return sensor.currentValue;
+            return clamp(sensor.currentValue, 15, 40);
+
         case "HUMIDITY":
             sensor.currentValue += randomVariation(-2, 2);
-            return sensor.currentValue;
+            return clamp(sensor.currentValue, 20, 90);
+
         case "SOIL_MOISTURE":
             sensor.currentValue += randomVariation(-0.5, 0.5);
-            return sensor.currentValue;
+            return clamp(sensor.currentValue, 10, 80);
+
         case "LIGHT":
             sensor.currentValue += randomVariation(-50, 50);
-            return sensor.currentValue;
+            return clamp(sensor.currentValue, 0, 1200);
     }
+}
+
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
 }
 
 async function sendReading(sensor, value) {
