@@ -1,17 +1,16 @@
 import express from "express";
+import sensorRouter from "./routes/sensorRouter.js";
+import readingRouter from "./routes/readingRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
-
-const sensorRouter = require('./routes/sensorRouter');
-const readingRouter = require('./routes/readingRouter')
 
 app.use(express.json());
 
 app.use("/sensors", sensorRouter);
 app.use("/readings", readingRouter);
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("<h1>Greenhouse Monitoring System Homepage</h1>");
 });
 

@@ -1,15 +1,20 @@
-const express = require("express");
+import { Router } from "express";
 
-import { validateReading } from "../middlewares/validateReading.js";
+import {
+  index,
+  show
+} from "../controllers/sensorController.js";
 
-const readingController = require('../controllers/readingController');
+import {
+  getBySensorId
+} from "../controllers/readingController.js";
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', readingController.index);
+router.get("/", index);
 
-router.get('/:id', readingController.show);
+router.get("/:sensorId/readings", getBySensorId);
 
-router.post("/", validateReading ,readingController.create);
+router.get("/:id", show);
 
-module.exports = router;
+export default router;
