@@ -1,6 +1,7 @@
 import { db } from "../database/connection.js";
 import { Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
+import { AppError } from "../errors/AppError.js";
 
 export async function getAllReadings() {
   const [rows] = await db.query(
@@ -60,7 +61,7 @@ export async function createReading(
   const sensor = sensors[0];
 
   if (!sensor) {
-    throw new Error("Sensor not found");
+    throw new AppError("Sensor not found", 404);
   }
 
   validateReadingValue(sensor.type, reading.value);
@@ -115,25 +116,25 @@ function validateReadingValue(
   switch (type) {
     case "TEMPERATURE":
       if (value < 0 || value > 50) {
-        throw new Error("Invalid temperature value");
+        throw new AppError("Invalid temperature value", 400);
       }
       break;
 
     case "HUMIDITY":
       if (value < 0 || value > 100) {
-        throw new Error("Invalid humidity value");
+        throw new AppError("Invalid humidity value", 400);
       }
       break;
 
     case "SOIL_MOISTURE":
       if (value < 0 || value > 100) {
-        throw new Error("Invalid soil moisture value");
+        throw new AppError("Invalid soil moisture value", 400);
       }
       break;
 
     case "LIGHT":
       if (value < 0) {
-        throw new Error("Invalid light value");
+        throw new AppError("Invalid light value", 400);
       }
       break;
   }
