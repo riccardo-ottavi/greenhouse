@@ -161,6 +161,21 @@ function getUnitFromSensorType(type: SensorType): ReadingUnit {
 export async function getReadingsBySensorId(
   sensorId: number
 ): Promise<Reading[]> {
+  const [sensorRows] = await db.query(
+    `
+      SELECT id
+      FROM sensors
+      WHERE id = ?
+    `,
+    [sensorId]
+  );
+
+  const sensors = sensorRows as { id: number }[];
+
+  if (sensors.length === 0) {
+    throw new AppError("Sensor not found", 404);
+  }
+
   const [rows] = await db.query(
     `
       SELECT
