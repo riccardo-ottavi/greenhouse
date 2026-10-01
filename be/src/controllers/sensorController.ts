@@ -15,11 +15,29 @@ export async function index(req: Request, res: Response) {
 export async function show(req: Request, res: Response) {
     try {
         const id = Number(req.params.id);
+
+        if (Number.isNaN(id)) {
+            res.status(400).json({
+                message: "Sensor id must be a number"
+            });
+            return;
+        }
+
         const sensor = await getSensorById(id);
+
+        if (!sensor) {
+            res.status(404).json({
+                message: "Sensor not found"
+            });
+            return;
+        }
         res.json(sensor);
     }
-    catch(err){
+
+    catch (err) {
         console.error(err);
-        res.status(500).json({message: "Couldn't get sensor's data"})
+        res.status(500).json({
+            message: "Couldn't get sensor's data"
+        });
     }
 }

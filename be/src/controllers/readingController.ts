@@ -1,3 +1,4 @@
+import { AppError } from "../errors/AppError";
 import { createReading, getAllReadings, getReadingById, getReadingsBySensorId } from "../services/readingService";
 import { Request, Response } from "express";
 
@@ -16,7 +17,15 @@ export async function show(
 ): Promise<void> {
   const id = Number(req.params.id);
 
+  if (Number.isNaN(id)) {
+    throw new AppError("Reading id must be a number", 400);
+  }
+
   const reading = await getReadingById(id);
+
+  if (!reading) {
+    throw new AppError("Reading not found", 404);
+  }
 
   res.json(reading);
 }

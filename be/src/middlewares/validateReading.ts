@@ -6,7 +6,7 @@ export function validateReading(
   next: NextFunction
 ): void {
 
-  const { sensorId, value, timestamp } = req.body;
+  const { sensorId, value, timestamp } = req.body ?? {};
 
   if (sensorId === undefined) {
     res.status(400).json({
