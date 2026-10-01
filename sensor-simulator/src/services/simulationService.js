@@ -73,7 +73,7 @@ function clamp(value, min, max) {
 }
 
 async function sendReading(sensor, value) {
-    const response = await fetch("http://localhost:3000/readings", {
+    const response = await fetch("http://localhost:3000/api/readings", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"

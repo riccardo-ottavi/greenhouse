@@ -7,8 +7,8 @@ const app = express();
 
 app.use(express.json());
 
-app.use("/sensors", sensorRouter);
-app.use("/readings", readingRouter);
+app.use("/api/sensors", sensorRouter);
+app.use("/api/readings", readingRouter);
 
 app.get("/", (_req, res) => {
   res.send("<h1>Greenhouse Monitoring System Homepage</h1>");
