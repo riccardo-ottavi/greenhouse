@@ -3,7 +3,7 @@ import { Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
 import { AppError } from "../errors/AppError.js";
 
-export async function getAllReadings() {
+export async function getAllReadings(): Promise<Reading[]> {
   const [rows] = await db.query(
     `
           SELECT
@@ -18,7 +18,9 @@ export async function getAllReadings() {
   return rows as Reading[];
 }
 
-export async function getReadingById(id: number) {
+export async function getReadingById(
+  id: number
+): Promise<Reading | undefined> {
   const [rows] = await db.query(
     `
           SELECT
