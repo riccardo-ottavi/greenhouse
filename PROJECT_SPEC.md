@@ -1,789 +1,729 @@
-# Greenhouse Monitoring System — Project Specification
+# Greenhouse Monitoring System
 
-## 1. Project Overview
+## 1. Simulated Sensors
 
-### 1.1 Description
+The virtual device will simulate four types of sensors, chosen to represent the main environmental conditions of a greenhouse without introducing unnecessary complexity. The sensors will be air temperature, measured in °C and physically represented by the SHT31 sensor, relative air humidity, measured in % and also physically represented by the SHT31, soil moisture, measured in % and physically represented by an analog soil moisture sensor, and light intensity, measured in lux and physically represented by the BH1750 sensor.
 
-**Greenhouse Monitoring System** is a web application designed to simulate the monitoring of a greenhouse through a network of virtual environmental sensors.
+Although temperature and air humidity can be measured by the same physical SHT31 component, they will be treated as two separate sensors within the software architecture, since they represent two distinct environmental variables and should be managed, stored, and displayed independently. This does not imply the use of two physical SHT31 components.
 
-The system represents a small IoT-inspired environment in which sensors are managed by the backend, periodically generate measurements, and provide environmental data to the application.
+The simulator will not attempt to reproduce the electronic operation of the physical components in detail. Instead, it will reproduce their behaviour at the device level by generating plausible values, using the appropriate units of measurement and maintaining consistency with the overall state of the greenhouse environment.
 
-The backend is responsible for receiving, validating, processing, and persisting sensor data. It also evaluates environmental conditions, manages sensor states, and generates alerts when predefined thresholds are exceeded.
+Each reading sent by the device will include the sensor ID, measured value, unit of measurement, and timestamp. The unit will be explicitly included in the reading rather than being implicitly inferred by the backend. However, the backend will validate that the received unit is consistent with the type of sensor associated with the given sensor ID before storing the reading. This keeps the device communication self-descriptive while ensuring that the backend remains responsible for data validation.
 
-The React frontend provides an interactive dashboard for monitoring the current state of the greenhouse and visualizing historical environmental data.
-
-### 1.2 Main Objective
-
-The main objective is to demonstrate a complete data pipeline:
-
-**Sensor → Reading → Backend → Processing → Persistence → Frontend**
-
-The system is designed to be extensible, allowing additional sensor types, greenhouse zones, plants, alerts, and real-time features to be introduced without changing the core architecture.
-
-### 1.3 Technology Stack
-
-#### Frontend
-
-* React
-* TypeScript
-* Vite
-* SCSS
-
-#### Backend
-
-* Node.js
-* Express
-* TypeScript
-
-#### Persistence
-
-* Relational database
-
-#### Communication
-
-* REST API
-* WebSocket for real-time updates
+No additional sensors, such as CO₂, atmospheric pressure, soil temperature, pH, or soil conductivity, will be simulated at this stage in order to keep the project focused on its core functionality.
 
 ---
 
-# 2. System Architecture
+## 2. Simulated Actuators
 
-The application is divided into two main layers:
+The virtual device will simulate three types of actuators that can influence the greenhouse environment: a water pump, a ventilation fan, and a grow light.
 
-### Frontend
+The water pump will be responsible for irrigation and will primarily affect soil moisture. The ventilation fan will be used to regulate the greenhouse environment by affecting both air temperature and relative air humidity. The grow light will primarily affect light intensity and may also have an indirect effect on air temperature.
 
-Responsible for:
+Each actuator will have an operational state, initially represented as either ON or OFF, and its effects on the environmental variables will be simulated progressively rather than instantaneously. The specific relationships and rates of change between actuators and environmental variables will be defined separately when modelling the greenhouse environment.
 
-* User interface
-* User interaction
-* Data visualization
-* Dashboard state
-* Real-time data presentation
+Each actuator will also have a separate control mode, either AUTO or MANUAL. The control mode determines whether the actuator is controlled by the device's automatic rules or by explicit commands received from the backend.
 
-### Backend
-
-Responsible for:
-
-* Business logic
-* Sensor management
-* Sensor simulation
-* Data validation
-* Data processing
-* Persistence
-* Threshold evaluation
-* Alert management
-* Real-time event distribution
-
-The backend acts as the core of the simulated greenhouse environment.
-
-Virtual sensors are managed by the backend and generate measurements according to their configuration.
-
-Conceptually:
-
-**Virtual Sensors → Backend → Persistence / Processing → Frontend**
+The selected actuators are intentionally limited to these three components in order to provide meaningful interactions between the simulated device and the greenhouse without introducing unnecessary complexity. They also represent components that could realistically be replaced by physical actuators controlled by an ESP32 in a future hardware implementation.
 
 ---
 
-# 3. Functional Requirements
+## 3. Device and Actuator States
 
-## 3.1 Greenhouse Management
+Sensors and actuators will use different state models according to their respective roles.
 
-The system represents a virtual greenhouse.
+Sensors will support four possible states:
 
-A greenhouse can contain one or more zones, which can in turn contain sensors and plants.
+- ONLINE — the sensor is functioning and producing valid readings.
+- OFFLINE — the sensor is not communicating with the device.
+- WARNING — the sensor is communicating but an abnormal condition has been detected.
+- ERROR — the sensor is not functioning correctly.
 
-A zone represents a specific physical area of the simulated greenhouse.
+Actuators will use two separate concepts: an operational state and a control mode.
+
+The operational state will initially support:
+
+- ON — the actuator is currently active.
+- OFF — the actuator is currently inactive.
+
+The control mode will support:
+
+- AUTO — the actuator is controlled by the automatic rules.
+- MANUAL — the actuator is controlled by explicit user commands.
+
+The control mode is intentionally separate from the operational state. This allows the system to represent four possible combinations:
+
+- AUTO + ON
+- AUTO + OFF
+- MANUAL + ON
+- MANUAL + OFF
+
+The source of an actuator state change, such as an automatic rule or a manual user action, will therefore not be represented as an additional actuator state.
+
+---
+
+## 4. Environmental Behaviour
+
+The virtual greenhouse will simulate the evolution of its environmental conditions over time rather than generating completely random sensor values. The model is intentionally simplified compared with a real greenhouse, but its relationships are based on environmental behaviours such as heat exchange, ventilation, irrigation, evaporation, and the daily variation of natural light.
+
+The goal is to produce a coherent and plausible environment while keeping the simulation understandable and maintainable.
+
+The simulator will operate using simulation cycles, with each cycle representing approximately one simulated minute. The simulator does not necessarily need to wait one real minute between cycles; the simulation time can progress faster than real time.
+
+Each cycle will calculate the new environmental state based on the previous state, the external environment, the current actuator states, and a small amount of natural variability. Environmental values will therefore change progressively rather than instantaneously.
+
+### Temperature
+
+The greenhouse temperature will be represented as an internal environmental variable influenced primarily by the outside temperature, the ventilation fan, and the grow light.
+
+The outside temperature will be obtained from a weather API when available, with a locally simulated fallback used if the external service is unavailable. The outside temperature will therefore act as an environmental input rather than directly representing the greenhouse temperature.
+
+The internal temperature will gradually tend towards the outside temperature. This tendency will be relatively slow, representing the thermal inertia of the greenhouse. During the day, higher outside temperatures will generally cause the greenhouse temperature to increase, while cooler nighttime temperatures will generally cause it to decrease.
+
+The ventilation fan will progressively reduce the internal temperature, while the grow light will produce a smaller progressive warming effect. These effects can occur simultaneously and will be combined when calculating the new temperature.
+
+The initial greenhouse temperature will be 22 °C, with the simulation maintaining a plausible operating range of approximately 10–35 °C. The initial value is a starting point for the simulation rather than a fixed target temperature.
+
+As a starting point for the simulation model, the approximate effect per simulation cycle will be:
+
+- tendency towards outside temperature: ±0.10 °C
+- ventilation fan ON: approximately −0.15 °C
+- grow light ON: approximately +0.03 °C
+
+These values are simulation parameters rather than universal physical measurements. They are intended to reproduce the relative behaviour of the different influences while keeping the model simple.
+
+### Air Humidity
+
+Air humidity will be influenced by the outside humidity, the water pump, the ventilation fan, and to a very small extent the grow light.
+
+As with temperature, the outside humidity will act as an environmental input and the internal humidity will gradually tend towards it rather than changing instantaneously.
+
+The water pump will have the strongest direct effect on air humidity. When irrigation is active, humidity will progressively increase. The ventilation fan will reduce humidity by exchanging the air inside the greenhouse with the external environment, but its direct effect on humidity will intentionally be weaker than the effect of the water pump.
+
+The grow light may produce a very small decrease in humidity as an indirect consequence of increased evaporation, but this effect will remain minor.
+
+The initial air humidity will be 65%, with a simulated range of approximately 20–95%.
+
+As a starting point for the simulation model, the approximate effect per simulation cycle will be:
+
+- tendency towards outside humidity: ±0.20%
+- water pump ON: approximately +1.00%
+- ventilation fan ON: approximately −0.30%
+- grow light ON: approximately −0.05%
+
+The model will not directly couple air humidity to greenhouse temperature at this stage. This keeps the relationship between variables understandable while still providing meaningful interactions between the sensors and actuators.
+
+### Soil Moisture
+
+Soil moisture will represent a normalized percentage value rather than a universal physical measurement of water content.
+
+In a real greenhouse, soil moisture measurements depend on the soil or growing medium, sensor characteristics, calibration, and irrigation conditions. The simulator will therefore use the percentage as an internal scale that allows the behaviour of the virtual soil to be represented consistently.
+
+Soil moisture will naturally decrease over time due to drying and evapotranspiration. The water pump will be the main mechanism responsible for increasing soil moisture.
+
+When the pump is active, moisture will increase progressively rather than immediately reaching a target value. The grow light may slightly accelerate drying, representing the increased environmental demand associated with light exposure. The ventilation fan will not have a direct effect on soil moisture in the initial model.
+
+The initial soil moisture will be 45%, with a simulated range of approximately 10–90%.
+
+As a starting point for the simulation model, the approximate effect per simulation cycle will be:
+
+- natural drying: approximately −0.05%
+- additional drying with grow light ON: approximately −0.02%
+- water pump ON: approximately +0.80%
+
+Air humidity will not directly modify soil moisture at this stage. The model will instead represent the main relationship through irrigation and natural drying.
+
+### Light Intensity
+
+Light intensity will be modelled differently from the other environmental variables because natural light follows a daily cycle. The main input will therefore be the time of day, which will determine the approximate natural light level. The grow light will then add artificial light when it is active.
+
+Natural light will progressively increase during the morning, reach its highest levels around the middle of the day, and progressively decrease during the afternoon and evening until reaching approximately zero during the night.
+
+The exact curve will be a simplified representation rather than a physical model of solar radiation, since real greenhouse light levels also depend on season, weather, geographical position, orientation, and greenhouse covering.
+
+The initial light intensity will be approximately 10,000 lux, while the simulated range will be approximately 0–60,000 lux.
+
+The grow light will add approximately 5,000 lux when active, with its effect being applied progressively rather than instantaneously.
+
+The simulator will therefore conceptually calculate light intensity as:
+
+```text
+Natural light based on time of day
++
+Artificial light from the grow light
+```
+
+The simulator will use lux because the virtual device is intended to represent the behaviour of a BH1750-type light sensor. Although other measurements such as PAR or PPFD are more directly relevant to plant photosynthesis, lux is appropriate for the scope and hardware reference of this project.
+
+### Environmental Variability and Limits
+
+The simulation will not use completely random changes for environmental values. Instead, each variable will follow a deterministic model based on its environmental inputs and actuator states, with a small random variation added to individual changes.
+
+This prevents the values from following perfectly predictable sequences while preserving the underlying environmental relationships.
+
+For example, an actuator that normally produces an effect of approximately +1.00% per cycle may produce small variations around that value rather than exactly +1.00% every time.
+
+All simulated environmental variables will be constrained to their defined plausible ranges. Values will therefore never be allowed to exceed the minimum or maximum limits of the simulation model.
+
+The resulting model will provide four interconnected but intentionally understandable environmental behaviours:
+
+- Temperature gradually follows the external environment and is affected by the fan and grow light.
+- Air humidity gradually follows the external environment and is strongly affected by irrigation, with a smaller effect from ventilation.
+- Soil moisture gradually decreases naturally and increases significantly when the water pump is active.
+- Light intensity follows a daily natural-light cycle and increases when the grow light is active.
+
+The numerical coefficients will remain configurable simulation parameters so that the behaviour can be adjusted later without changing the overall architecture.
+
+---
+
+## 5. Automatic Rules
+
+The virtual device will support automatic control rules that use sensor readings to determine when actuators should be activated or deactivated.
+
+The automatic control system will use threshold-based rules with hysteresis. This means that the threshold used to activate an actuator will be different from the threshold used to deactivate it. This prevents an actuator from repeatedly switching between ON and OFF when a sensor value fluctuates around a single threshold.
+
+The thresholds defined below are simulation parameters, not universal agronomic recommendations. In a real greenhouse, appropriate thresholds would depend on the crop, growing medium, sensor characteristics, and other environmental factors.
+
+### Water Pump
+
+The water pump will primarily be controlled according to soil moisture.
+
+The proposed rules are:
+
+- If soil moisture falls below 30%, the water pump is switched ON.
+- If soil moisture reaches or exceeds 50%, the water pump is switched OFF.
+
+The pump will therefore remain active while the soil is being rehydrated instead of switching off immediately after the value moves above the activation threshold.
+
+### Ventilation Fan
+
+The ventilation fan will be controlled using both greenhouse temperature and air humidity.
+
+The fan will be switched ON when either of the following conditions is met:
+
+- greenhouse temperature is above 28 °C
+- air humidity is above 75%
+
+The fan will be switched OFF only when both of the following conditions are met:
+
+- greenhouse temperature is below 25 °C
+- air humidity is below 70%
+
+This allows the fan to contribute both to temperature control and humidity management.
+
+### Grow Light
+
+The grow light will primarily be controlled according to light intensity and time of day.
+
+Automatic lighting will only be allowed during a defined daytime operating window:
+
+- 06:00–20:00
+
+Within this window:
+
+- if light intensity falls below 10,000 lux, the grow light is switched ON
+- if light intensity reaches or exceeds 15,000 lux, the grow light is switched OFF
+
+The difference between the ON and OFF thresholds provides hysteresis and prevents unnecessary switching when natural light fluctuates around the threshold.
+
+The grow light will therefore act as supplemental lighting rather than replacing natural light.
+
+### Automatic and Manual Control
+
+Each actuator will have a separate control mode:
+
+- AUTO — the actuator is controlled by the automatic rules.
+- MANUAL — the actuator is controlled by explicit user commands.
+
+The control mode is separate from the actuator's operational state.
+
+An actuator can therefore be:
+
+- AUTO + ON
+- AUTO + OFF
+- MANUAL + ON
+- MANUAL + OFF
+
+When an actuator is in AUTO mode, the automatic rules are responsible for changing its state. When it is in MANUAL mode, automatic rules will not override the user's command.
+
+When an actuator changes from MANUAL to AUTO, the automatic rules will immediately re-evaluate the current environmental conditions. The device will not arbitrarily force the actuator into a predefined state. Instead, the appropriate automatic rule will determine the next state according to the current sensor values.
+
+The automatic control system will therefore follow this conceptual flow:
+
+```text
+Sensor readings
+      ↓
+Automatic Rules
+      ↓
+Actuator State
+```
+
+Manual control will follow:
+
+```text
+User Command
+      ↓
+Backend
+      ↓
+Device
+      ↓
+Actuator State
+```
+
+The automatic rules will be implemented as configurable parameters so that thresholds and timing behaviour can be adjusted without changing the overall architecture.
+
+---
+
+## 6. Device Commands
+
+The virtual device will be able to receive commands from the backend in order to change actuator states or change actuator control modes.
+
+The backend will act as the communication gateway between the frontend and the device, meaning that the frontend will never communicate directly with the device.
+
+This separation will allow the virtual device to be replaced by a physical device such as an ESP32 in the future without requiring major changes to the frontend architecture.
+
+The device will initially support two types of persistent commands:
+
+### Set Actuator State
+
+The SET_ACTUATOR_STATE command will request a specific state for an actuator.
+
+The command will identify both the actuator and the desired state.
 
 Examples:
 
-* Zone A
-* Zone B
-* North Area
-* South Area
-
----
-
-## 3.2 Sensor Management
-
-The backend manages the virtual sensors available in the greenhouse.
-
-Each sensor has:
-
-* Unique identifier
-* Name
-* Type
-* Zone
-* Status
-* Sampling interval
-* Current value
-* Last update timestamp
-
-Supported sensor types include:
-
-* Temperature
-* Air humidity
-* Soil moisture
-* Light
-
-The architecture allows additional sensor types to be introduced.
-
-### Sensor Status
-
-Sensors can have the following states:
-
-* `ONLINE`
-* `OFFLINE`
-* `WARNING`
-* `ERROR`
-
-Sensor status is determined by the backend based on sensor activity and processed measurements.
-
----
-
-## 3.3 Sensor Simulation
-
-Sensors represent virtual devices rather than physical hardware.
-
-Their behavior is simulated by the backend.
-
-Each virtual sensor periodically generates measurements according to its configured sampling interval.
-
-The simulation aims to produce coherent environmental data rather than completely random values.
-
-For example:
-
 ```text
-23.2°C → 23.4°C → 23.5°C → 23.7°C
+WATER_PUMP → ON
+WATER_PUMP → OFF
+VENTILATION_FAN → ON
+GROW_LIGHT → OFF
 ```
 
-represents a more realistic progression than unrelated random values.
+This command changes the operational state of the actuator but does not determine whether the actuator is controlled automatically or manually.
 
-The simulation model can support:
+### Set Control Mode
 
-* Gradual variations
-* Environmental trends
-* Anomalies
-* Environmental events
-* Simulated sensor failures
+The SET_CONTROL_MODE command will change the control mode of an actuator between:
 
----
+- AUTO — the actuator is controlled by the automatic rules.
+- MANUAL — the actuator is controlled by explicit user commands.
 
-## 3.4 Reading Management
-
-A **Reading** represents a single measurement produced by a sensor at a specific point in time.
-
-A Reading contains:
-
-* Unique identifier
-* Sensor identifier
-* Value
-* Unit of measurement
-* Timestamp
-
-Example:
+Examples:
 
 ```text
-TEMP-001
-
-10:00:00 → 23.4°C
-10:00:05 → 23.6°C
-10:00:10 → 23.5°C
-10:00:15 → 23.8°C
+WATER_PUMP → MANUAL
+WATER_PUMP → AUTO
 ```
 
-The relationship between sensors and readings is:
-
-**One Sensor → Many Readings**
-
-The Sensor represents the virtual device, while Readings represent the measurements generated by that device over time.
-
----
-
-## 3.5 Data Validation
-
-Incoming readings are validated by the backend before processing and persistence.
-
-Validation includes:
-
-* Required fields
-* Correct data types
-* Valid sensor identifier
-* Valid unit of measurement
-* Valid timestamp
-* Plausible measurement values
-
-Invalid readings are rejected and must not be treated as reliable system data.
-
----
-
-## 3.6 Data Processing
-
-When a new Reading is received, the backend:
-
-1. Receives the measurement.
-2. Validates the data.
-3. Identifies the associated sensor.
-4. Processes the measurement.
-5. Updates the sensor's current state.
-6. Evaluates configured thresholds.
-7. Generates an Alert when necessary.
-8. Persists the Reading.
-9. Publishes relevant real-time events.
-
----
-
-## 3.7 Threshold Monitoring
-
-The backend evaluates sensor measurements against predefined environmental thresholds.
-
-Measurements can be classified as:
-
-* `NORMAL`
-* `WARNING`
-* `CRITICAL`
-
-Thresholds are part of the backend business logic and are not determined exclusively by the frontend.
-
-This allows the same environmental rules to be consistently applied regardless of how the data is consumed.
-
----
-
-## 3.8 Alert Management
-
-The system can generate alerts when environmental conditions exceed configured thresholds or when relevant system conditions occur.
-
-An Alert contains:
-
-* Unique identifier
-* Related sensor
-* Type
-* Severity
-* Message
-* Status
-* Creation timestamp
-* Resolution timestamp
-
-### Alert Severity
-
-* `INFO`
-* `WARNING`
-* `CRITICAL`
-
-### Alert Status
-
-* `ACTIVE`
-* `ACKNOWLEDGED`
-* `RESOLVED`
-
----
-
-## 3.9 Historical Data
-
-Sensor readings are persisted so that historical environmental data can be retrieved.
-
-Historical data can be queried by:
-
-* Sensor
-* Sensor type
-* Time range
-* Result limit
-
-The historical data is primarily used for charts and statistical analysis.
-
----
-
-## 3.10 Dashboard
-
-The frontend provides a dashboard for monitoring the greenhouse.
-
-The dashboard can display:
-
-* Current environmental values
-* Sensor statuses
-* Last update times
-* Active alerts
-* Historical charts
-* Environmental statistics
-
-The initial implementation focuses on temperature monitoring while the architecture supports additional environmental metrics.
-
----
-
-## 3.11 Real-Time Updates
-
-The application supports real-time communication between the backend and connected frontend clients.
-
-WebSocket communication can be used to publish events such as:
-
-* New Reading
-* Sensor status change
-* New Alert
-* Alert resolution
-
-This allows the dashboard to react to changes without continuously polling the backend.
-
----
-
-# 4. Non-Functional Requirements
-
-## 4.1 Separation of Responsibilities
-
-Frontend and backend are developed as separate applications.
-
-The frontend focuses on presentation and interaction.
-
-The backend owns the application's business logic and system state.
-
-Business rules such as threshold evaluation and sensor status determination must remain on the backend.
-
----
-
-## 4.2 Backend Architecture
-
-The backend follows a layered structure based on:
-
-**Routes → Controllers → Services → Data Layer**
-
-Each layer has a clearly defined responsibility.
-
-This separation is intended to improve maintainability and make individual parts of the system easier to test and extend.
-
----
-
-## 4.3 Extensibility
-
-The architecture should allow new sensor types and environmental metrics to be introduced without requiring major changes to the existing system.
-
-Adding a new sensor should primarily involve defining its measurement characteristics, simulation behavior, and relevant environmental thresholds.
-
----
-
-## 4.4 Simulation Realism
-
-Sensor values should evolve coherently over time.
-
-The simulation should support gradual variations and configurable behavior rather than relying exclusively on independent random values.
-
-This provides more meaningful data for monitoring and visualization.
-
----
-
-## 4.5 Performance
-
-The system should be able to handle an increasing number of sensor readings.
-
-Historical queries should support filtering and limiting by:
-
-* Sensor
-* Time range
-* Number of results
-
----
-
-## 4.6 Reliability
-
-The system should handle:
-
-* Invalid readings
-* Unknown sensors
-* Offline sensors
-* Database errors
-* Backend errors
-* Interrupted real-time connections
-
-Errors should be handled consistently and communicated appropriately to the frontend.
-
----
-
-## 4.7 Maintainability
-
-The application should be organized into modules with clearly defined responsibilities.
-
-Changes to:
-
-* Sensor simulation
-* Business logic
-* Persistence
-* API endpoints
-* Real-time communication
-* User interface
-
-should have minimal impact on unrelated parts of the system.
-
----
-
-# 5. Domain Model
-
-## 5.1 Greenhouse
-
-Represents the virtual greenhouse.
-
-A greenhouse contains one or more zones.
-
----
-
-## 5.2 Zone
-
-Represents a specific area within the greenhouse.
-
-A zone can contain:
-
-* Sensors
-* Plants
-
-Relationship:
-
-**Greenhouse 1 → N Zones**
-
----
-
-## 5.3 Sensor
-
-Represents a virtual environmental sensor managed by the backend.
-
-Conceptual attributes:
-
-* `id`
-* `name`
-* `type`
-* `zone`
-* `status`
-* `samplingInterval`
-* `currentValue`
-* `lastUpdate`
-
-The Sensor represents the device itself.
-
----
-
-## 5.4 Reading
-
-Represents a single measurement generated by a Sensor.
-
-Conceptual attributes:
-
-* `id`
-* `sensorId`
-* `value`
-* `unit`
-* `timestamp`
-
-Relationship:
-
-**Sensor 1 → N Readings**
-
-Readings represent the historical measurements produced by a sensor.
-
----
-
-## 5.5 Plant
-
-Represents a plant located within the greenhouse.
-
-Conceptual attributes:
-
-* `id`
-* `name`
-* `species`
-* `zone`
-* `idealConditions`
-
-Plants can eventually be associated with environmental requirements, allowing the system to evaluate whether their surrounding conditions are suitable.
-
----
-
-## 5.6 Alert
-
-Represents a condition detected by the system that requires attention.
-
-Conceptual attributes:
-
-* `id`
-* `sensorId`
-* `severity`
-* `type`
-* `message`
-* `status`
-* `createdAt`
-* `resolvedAt`
-
-Relationship:
-
-**Sensor 1 → N Alerts**
-
----
-
-## 5.7 Simulation
-
-Represents the state and configuration of the virtual sensor simulation.
-
-Possible information includes:
-
-* Current state
-* Simulation speed
-* Sampling interval
-* Active sensors
-* Active simulated events
-
-Possible states:
-
-* `RUNNING`
-* `PAUSED`
-* `STOPPED`
-
----
-
-# 6. API
-
-The following endpoints describe the planned API surface.
-
-Endpoint names and request/response structures may evolve during implementation.
-
-## 6.1 Greenhouse
-
-### `GET /api/greenhouse`
-
-Returns information about the greenhouse.
-
-### `GET /api/greenhouse/status`
-
-Returns the current overall greenhouse status.
-
----
-
-## 6.2 Sensors
-
-### `GET /api/sensors`
-
-Returns all registered sensors.
-
-### `GET /api/sensors/:id`
-
-Returns a specific sensor.
-
-### `POST /api/sensors`
-
-Creates a new sensor.
-
-### `PATCH /api/sensors/:id`
-
-Updates a sensor configuration.
-
-### `DELETE /api/sensors/:id`
-
-Removes a sensor.
-
----
-
-## 6.3 Readings
-
-### `GET /api/readings`
-
-Returns sensor readings.
-
-Supported filters may include:
-
-* `sensor`
-* `type`
-* `from`
-* `to`
-* `limit`
-
-### `GET /api/sensors/:id/readings`
-
-Returns historical readings for a specific sensor.
-
-### `POST /api/readings`
-
-Receives a reading generated by a virtual sensor.
-
----
-
-## 6.4 Alerts
-
-### `GET /api/alerts`
-
-Returns alerts.
-
-### `GET /api/alerts/:id`
-
-Returns a specific alert.
-
-### `PATCH /api/alerts/:id`
-
-Updates an alert status.
-
----
-
-## 6.5 Simulation
-
-### `GET /api/simulation/status`
-
-Returns the current simulation state.
-
-### `POST /api/simulation/start`
-
-Starts the sensor simulation.
-
-### `POST /api/simulation/pause`
-
-Pauses the sensor simulation.
-
-### `POST /api/simulation/reset`
-
-Resets the simulation state.
-
----
-
-# 7. Data Flow
-
-## 7.1 Main Data Pipeline
-
-The core data pipeline is:
-
-**Virtual Sensor → Reading → Backend → Processing → Persistence → Frontend**
-
-The complete lifecycle of a measurement is:
-
-1. A virtual sensor generates a measurement.
-2. The measurement is represented as a Reading.
-3. The Reading is submitted to the backend.
-4. The backend validates the Reading.
-5. The backend identifies the associated sensor.
-6. The measurement is processed.
-7. The current sensor state is updated.
-8. Environmental thresholds are evaluated.
-9. An Alert is generated if necessary.
-10. The Reading is persisted.
-11. Relevant events are published to connected frontend clients.
-12. The frontend updates the dashboard.
-
----
-
-## 7.2 Current State vs Historical Data
-
-The system distinguishes between the current state of a sensor and its historical readings.
-
-### Current State
-
-Represents the latest known condition of the sensor.
-
-Example:
-
-```text
-TEMP-001
-Value: 23.6°C
-Status: ONLINE
-Condition: NORMAL
-Last update: 10:32:15
-```
-
-### Historical Data
-
-Represents the measurements recorded over time.
-
-Example:
-
-```text
-10:32:00 → 23.2°C
-10:32:05 → 23.4°C
-10:32:10 → 23.5°C
-10:32:15 → 23.6°C
-```
-
-The current state is primarily used for dashboard summaries.
-
-Historical readings are primarily used for charts and statistics.
-
----
-
-## 7.3 REST Communication
-
-REST is used primarily for request/response operations such as:
-
-* Retrieving sensors
-* Creating and updating sensors
-* Retrieving historical readings
-* Retrieving alerts
-* Updating alerts
-* Controlling the simulation
+When a user manually activates an actuator, the device will first enter MANUAL mode and then apply the requested actuator state.
 
 Conceptually:
 
-**React → REST API → Backend → Data Layer → Response → React**
+```text
+SET_CONTROL_MODE(WATER_PUMP, MANUAL)
+        ↓
+SET_ACTUATOR_STATE(WATER_PUMP, ON)
+```
+
+The actuator will remain under manual control until its control mode is changed back to AUTO.
+
+When an actuator changes from MANUAL to AUTO, the automatic rules will immediately re-evaluate the current environmental conditions.
+
+### Device Status Requests
+
+A request for the current device status is not considered a persistent Command.
+
+Device status can instead be obtained through the backend's normal API or through a dedicated device-status communication operation when necessary.
+
+This distinction keeps the persistent commands data focused on instructions that actually modify actuator state or control mode.
+
+### Command Results and Device Status
+
+Commands and device status will be treated as separate concepts.
+
+A Command represents an instruction sent by the backend.
+
+A Command Result indicates whether the device successfully received and executed that instruction.
+
+The current Device status represents the actual state of the device after commands and automatic rules have been applied.
+
+A successful command result should therefore provide enough information for the backend to determine that the requested operation was executed successfully. If the device cannot execute a command, it should instead return a failed result.
+
+The device may also provide an informational reason associated with the current actuator state, for example:
+
+```text
+WATER_PUMP → ON, AUTO, SOIL_MOISTURE_LOW
+WATER_PUMP → ON, MANUAL, USER_COMMAND
+VENTILATION_FAN → ON, AUTO, TEMPERATURE_HIGH
+```
+
+The reason is informational and does not represent an additional actuator state or a persistent actuator mode.
+
+The overall manual command flow will therefore follow:
+
+```text
+Frontend
+    ↓
+Backend
+    ↓
+Validated Command
+    ↓
+Device
+    ↓
+Actuator
+```
+
+Automatic actuator changes do not create persistent Commands. They are produced directly by the Device's automatic control logic.
 
 ---
 
-## 7.4 Real-Time Communication
+## 7. Communication Between Device and Backend
 
-WebSocket communication is used for events that should be reflected immediately in the frontend.
+Communication between the virtual device and the backend will be implemented exclusively through HTTP, using REST APIs.
 
-Examples include:
+The backend will act as the central communication point between the device and the rest of the application:
 
-* New readings
-* Sensor status changes
-* New alerts
-* Alert resolution
+```text
+Frontend → Backend
+Device   → Backend
+Backend  → Device
+```
+
+The frontend will never communicate directly with the device.
+
+This approach keeps the architecture simple and makes it possible to use the same communication contract both with the software simulator and, in the future, with a physical device such as an ESP32.
+
+### Device Identity
+
+The device will be identified by a unique device ID, initially represented by an identifier such as:
+
+```text
+GREENHOUSE_001
+```
+
+Sensors and actuators will be associated with this device.
+
+This approach allows the architecture to support multiple devices in the future without requiring changes to the main communication model.
+
+### Device → Backend
+
+The Device → Backend communication will mainly include three operations.
+
+#### Sensor Readings
+
+The device will transmit sensor readings through a POST request to a dedicated endpoint such as:
+
+```http
+POST /api/device/readings
+```
+
+The device will be able to send multiple readings within the same request.
 
 Conceptually:
 
-**Sensor → Backend → WebSocket → React**
-
-REST and WebSocket therefore have complementary roles:
-
-* **REST:** request/response operations
-* **WebSocket:** real-time event delivery
-
----
-
-## 7.5 Offline Sensor Detection
-
-A sensor does not need to explicitly send an `OFFLINE` reading.
-
-The backend can determine whether a sensor is offline by monitoring the time elapsed since its last reading.
-
-Example:
-
-```text
-10:00:00 → Reading received
-10:00:05 → Reading received
-10:00:10 → Reading received
-10:00:15 → No Reading
-10:00:20 → No Reading
+```json
+{
+  "deviceId": "GREENHOUSE_001",
+  "readings": [
+    {
+      "sensorId": 1,
+      "value": 23.5,
+      "unit": "°C",
+      "timestamp": "..."
+    },
+    {
+      "sensorId": 2,
+      "value": 65,
+      "unit": "%",
+      "timestamp": "..."
+    }
+  ]
+}
 ```
 
-If the configured timeout is exceeded, the backend can transition the sensor from:
+The backend will validate the received data and subsequently store the readings in the database.
 
-**ONLINE → OFFLINE**
+#### Command Results
 
-The state change can then be propagated to the frontend through the real-time communication layer.
+The device will transmit command execution results through an endpoint such as:
+
+```http
+POST /api/device/command-results
+```
+
+Each result will be associated with a specific command ID, allowing the backend to determine which command was executed and whether the operation succeeded or failed.
+
+#### Heartbeat
+
+The device will periodically send a heartbeat through an endpoint such as:
+
+```http
+POST /api/device/heartbeat
+```
+
+The heartbeat will allow the backend to determine whether the device is communicating correctly.
+
+The backend will maintain the most recent valid communication time as lastSeen. Individual heartbeat events will not initially be stored as historical records.
+
+### Backend → Device
+
+The Backend → Device communication will mainly be used to manage commands sent to actuators.
+
+The backend will maintain a queue of pending commands, and the device will use HTTP polling to periodically check whether new commands are available.
+
+An endpoint such as:
+
+```http
+GET /api/device/commands?deviceId=GREENHOUSE_001
+```
+
+can be used for this purpose.
+
+If there are no pending commands, the backend will return an empty response. Otherwise, it will return one or more commands to be executed.
+
+Each command will have a unique identifier and will contain the information required to execute the operation, such as the command type, the affected actuator, and the requested state or control mode.
+
+### Command Lifecycle
+
+Commands will use the following simple lifecycle:
+
+```text
+PENDING
+   ↓
+EXECUTED
+```
+
+or:
+
+```text
+PENDING
+   ↓
+FAILED
+```
+
+When a command is created by the backend, it will initially have the PENDING status.
+
+After the device receives and successfully executes it, the command will transition to EXECUTED.
+
+If an error occurs, it will instead transition to FAILED.
+
+If the device is temporarily unreachable, the command will remain PENDING and can be retrieved when the device becomes available again.
+
+### Command Idempotency
+
+Each command will be identified by a unique command ID, which will also be included in the result returned by the device.
+
+The device must prevent the same command from being executed twice if a response is lost during communication.
+
+For example, if the device successfully executes command 123 but the corresponding result does not reach the backend, the backend may return the same command during the next polling request.
+
+The device must therefore recognize that command 123 has already been executed and return a successful result again without unnecessarily repeating the actuator operation.
+
+### Authentication
+
+The device will use a simple authentication mechanism based on an API key or equivalent token.
+
+In a real environment exposed to the Internet, HTTP communication will be protected through HTTPS.
+
+The goal of this first version is not to implement an advanced device provisioning system, but to define a mechanism simple enough to be used by both the simulator and a future physical device.
+
+### Device Communication Cycle
+
+The simulator's operational cycle can conceptually consist of:
+
+1. Update environmental state
+2. Apply automatic rules
+3. Generate sensor readings
+4. Send readings to backend
+5. Poll for pending commands
+6. Execute received commands
+7. Send command results
+8. Send heartbeat
+
+The exact frequency of these operations can be modified later without changing the main HTTP communication contract.
+
+### Overall Architecture
+
+The overall architecture will therefore be:
+
+```text
+                ┌─────────────────────┐
+                 │      FRONTEND       │
+                 │   React + TypeScript│
+                 └──────────┬──────────┘
+                            │
+                           HTTP
+                            │
+                 ┌──────────▼──────────┐
+                 │       BACKEND       │
+                 │ Node.js + Express   │
+                 │      + MySQL        │
+                 └──────────┬──────────┘
+                            │
+                           HTTP
+                            │
+                 ┌──────────▼──────────┐
+                 │       DEVICE        │
+                 │  Node.js Simulator  │
+                 │        today        │
+                 └─────────────────────┘
+```
+
+The Device can later be replaced by:
+
+```text
+                ┌─────────────────────┐
+                 │       DEVICE        │
+                 │   ESP32 + firmware  │
+                 └─────────────────────┘
+```
+
+The backend should not depend on whether the Device is implemented as a simulator or physical hardware. Both implementations must follow the same external HTTP communication contract.
 
 ---
 
-# 8. MVP
+## 8. Persistence
 
-The Minimum Viable Product focuses on demonstrating the core monitoring pipeline with a single sensor type.
+The system will persist in the database the information required to maintain the identity and configuration of the greenhouse components, their current operational state, historical sensor measurements, and the commands exchanged between the backend and the Device.
 
-### MVP Scope
+The database will therefore act as the persistent source of information for the application, while the Device implementation will remain responsible for runtime simulation or physical interaction with sensors and actuators.
 
-* Virtual greenhouse
-* One virtual temperature sensor
-* Periodic temperature simulation
-* Reading generation
-* Reading submission to the backend
-* Reading validation
-* Reading persistence
-* Current sensor state
-* Basic `ONLINE` / `OFFLINE` status
-* Basic temperature threshold evaluation
-* Essential REST API
-* React dashboard
-* Current temperature visualization
-* Sensor status visualization
-* Historical temperature chart
+### Information That Will Be Persisted
 
-### MVP Data Pipeline
+The following information will be persisted:
 
-**Virtual Temperature Sensor → Reading → Express Backend → Database → React Dashboard**
+```text
+PERSISTED
 
-The MVP establishes the foundation for extending the system with additional sensors, real-time updates, alerts, plants, zones, and advanced simulation behavior.
+├── Device identity and configuration
+│   ├── unique device identifier
+│   ├── human-readable name
+│   ├── operational status
+│   ├── authentication information
+│   ├── registration time
+│   └── last communication time
+│
+├── Sensor configuration and current state
+│   ├── sensor identity
+│   ├── associated device
+│   ├── name
+│   ├── sensor type
+│   ├── operational status
+│   ├── sampling interval
+│   ├── current value
+│   ├── last update time
+│   └── zone association
+│
+├── Historical sensor readings
+│   ├── sensor
+│   ├── measured value
+│   ├── unit
+│   └── timestamp
+│
+├── Actuator configuration and current state
+│   ├── actuator identity
+│   ├── associated device
+│   ├── name
+│   ├── actuator type
+│   ├── operational state
+│   ├── control mode
+│   └── last update time
+│
+└── Commands
+    ├── command identity
+    ├── associated device
+    ├── associated actuator
+    ├── command type
+    ├── requested state or control mode
+    ├── execution status
+    ├── creation time
+    └── completion time
+```
+
+The Device identity and configuration will be persisted so that the backend can identify the Device, determine its current availability, and maintain its relationships with sensors and actuators.
+
+The Sensor configuration and current state will be persisted so that the backend and frontend can access the latest sensor information directly.
+
+The current sensor value will be stored separately from historical measurements. This means that the dashboard can access the latest value directly without having to retrieve the most recent record from the entire readings history.
+
+The system will also persist historical sensor readings generated by the Device. Each Reading represents a measurement produced by a sensor at a specific point in time.
+
+Historical readings are required for displaying charts, reviewing past conditions, and potentially analysing environmental trends.
+
+The Actuator configuration and current state will be persisted so that the backend and frontend can determine which actuators exist, their current state, and whether they are operating under automatic or manual control.
+
+The database represents the current persistent state of an actuator. The concrete Device implementation remains responsible for physically or virtually applying that state.
+
+The system will persist Commands sent by the backend to the Device. Commands will be stored so that the backend can maintain a queue of pending instructions, associate each instruction with a specific Device and actuator, and record whether the command was successfully executed or failed.
+
+The completedAt timestamp will represent the time at which a command finished its execution lifecycle, whether the final status is EXECUTED or FAILED.
+
+### Information That Will Not Initially Be Persisted
+
+The following information will not initially be stored as independent database records:
+
+```text
+NOT PERSISTED INITIALLY
+
+├── Individual heartbeat history
+├── Automatic control rules
+├── Hardware-specific information
+└── Simulator-specific parameters
+```
+
+The system will not initially persist every individual heartbeat received from the Device. Instead, the backend will maintain the latest communication time through lastSeen.
+
+A complete heartbeat history is not necessary for the initial scope of the project and would introduce additional data without providing an immediate functional benefit.
+
+The automatic control rules will not initially be stored as independent database entities.
+
+The rules defined for the greenhouse, such as activating the water pump when soil moisture falls below a threshold or activating the ventilation fan when temperature or humidity becomes too high, will remain part of the Device's runtime control logic.
+
+Automatic actuator changes therefore do not generate persistent Commands in the commands table. The resulting actuator state will instead be persisted as the current state of the Actuator.
+
+The database will also not contain hardware-specific implementation details, such as GPIO pins, I²C addresses, ADC configuration, electrical characteristics, or internal simulation parameters used by the Node.js simulator.
+
+These details belong to the concrete Device implementation and must not become dependencies of the backend domain model.
+
+### Persistence Principles
+
+The persistence model follows four main principles:
+
+- Current state is persisted when the application needs fast access to the latest operational information.
+- Historical measurements are persisted when the application needs to reconstruct environmental conditions over time.
+- Commands are persisted because they represent asynchronous instructions that must survive temporary communication failures.
+- Implementation-specific runtime details are not persisted because they belong to the concrete Device implementation rather than the backend domain model.
+
+The database will therefore remain focused on persistent application state and historical data, while runtime behaviour, automatic control logic, and implementation-specific details remain outside the database.
+
+### Database Entities Derived from the Persistence Model
+
+The persistence requirements will be represented through five main domain entities:
+
+- Device
+- Sensor
+- Reading
+- Actuator
+- Command
+
+Their conceptual relationships are:
+
+```text
+Device 1 ───── N Sensor
+Sensor 1 ───── N Reading
+
+Device 1 ───── N Actuator
+Actuator 1 ─── N Command
+```
+
+The Device represents the identifiable physical or virtual control unit.
+
+The Sensor represents a logical sensor associated with a Device and responsible for measuring one environmental variable.
+
+The Reading represents one historical measurement produced by a Sensor.
+
+The Actuator represents a controllable component associated with a Device and maintains its current state and control mode.
+
+The Command represents an instruction issued by the backend to modify an Actuator's state or control mode.
+
+These entities will form the basis of the database implementation. Their exact fields, data types, constraints, foreign keys, indexes, and other database-specific details will be defined during the database implementation phase.
