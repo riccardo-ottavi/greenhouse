@@ -1,6 +1,7 @@
 import { db } from "../database/connection.js";
 import { AppError } from "../errors/AppError.js";
-import { Command } from "../types/Command.js";
+import { ActuatorState, ControlMode } from "../types/Actuator.js";
+import { Command, CommandType } from "../types/Command.js";
 
 export async function getPendingCommands(
   deviceId: string
@@ -70,4 +71,91 @@ export async function completeCommand(
       commandId
     ]
   );
+}
+
+export async function createCommand(
+  actuatorId: number,
+  type: CommandType,
+  state: ActuatorState | null,
+  controlMode: ControlMode | null
+): Promise<Command> {
+  const [actuatorRows] = await db.query(
+    `
+      SELECT
+        id,
+        device_id AS deviceId
+      FROM actuators
+      WHERE id = ?
+    `,
+    [actuatorId]
+  );
+
+  const actuators = actuatorRows as {
+    id: number;
+    deviceId: number;
+  }[];
+
+  const actuator = actuators[0];
+
+  if (!actuator) {
+    throw new AppError(
+      "Actuator not found",
+      404
+    );
+  }
+
+  if (type === "SET_ACTUATOR_STATE") {
+    if (state === null || controlMode !== null) {
+      throw new AppError(
+        "Invalid payload for SET_ACTUATOR_STATE",
+        400
+      );
+    }
+  }
+
+  if (type === "SET_CONTROL_MODE") {
+    if (controlMode === null || state !== null) {
+      throw new AppError(
+        "Invalid payload for SET_CONTROL_MODE",
+        400
+      );
+    }
+  }
+
+  const [result] = await db.query(
+    `
+      INSERT INTO commands (
+        device_id,
+        actuator_id,
+        type,
+        state,
+        control_mode,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, 'PENDING')
+    `,
+    [
+      actuator.deviceId,
+      actuatorId,
+      type,
+      state,
+      controlMode
+    ]
+  );
+
+  const insertResult = result as {
+    insertId: number;
+  };
+
+  return {
+    id: insertResult.insertId,
+    deviceId: actuator.deviceId,
+    actuatorId,
+    type,
+    state,
+    controlMode,
+    status: "PENDING",
+    createdAt: new Date(),
+    completedAt: null
+  };
 }
