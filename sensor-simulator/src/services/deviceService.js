@@ -59,3 +59,18 @@ export async function processPendingCommands() {
     );
   }
 }
+
+export async function startCommandPolling() {
+  console.log("Command polling started");
+
+  setInterval(async () => {
+    try {
+      await processPendingCommands();
+    } catch (error) {
+      console.error(
+        "Command polling error:",
+        error.message
+      );
+    }
+  }, 2000);
+}
