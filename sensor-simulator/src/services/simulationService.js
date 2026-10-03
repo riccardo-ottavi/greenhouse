@@ -51,13 +51,29 @@ function randomVariation(min, max) {
 
 function generateNextValue(sensor) {
     switch (sensor.type) {
-        case "TEMPERATURE":
-            sensor.currentValue += randomVariation(-0.5, 0.5);
-            return clamp(sensor.currentValue, 15, 40);
+        case "TEMPERATURE": {
+            const fan = getActuatorState(2);
 
-        case "HUMIDITY":
+            sensor.currentValue += randomVariation(-0.5, 0.5);
+
+            if (fan.state === "ON") {
+                sensor.currentValue -= randomVariation(0.12, 0.18);
+            }
+
+            return clamp(sensor.currentValue, 10, 35);
+        }
+
+        case "HUMIDITY": {
+            const fan = getActuatorState(2);
+
             sensor.currentValue += randomVariation(-2, 2);
-            return clamp(sensor.currentValue, 20, 90);
+
+            if (fan.state === "ON") {
+                sensor.currentValue -= randomVariation(0.25, 0.35);
+            }
+
+            return clamp(sensor.currentValue, 20, 95);
+        }
 
         case "SOIL_MOISTURE": {
             const pump = getActuatorState(1);
@@ -71,9 +87,17 @@ function generateNextValue(sensor) {
             return clamp(sensor.currentValue, 10, 90);
         }
 
-        case "LIGHT":
+        case "LIGHT": {
+            const growLight = getActuatorState(3);
+
             sensor.currentValue += randomVariation(-50, 50);
-            return clamp(sensor.currentValue, 0, 1200);
+
+            if (growLight.state === "ON") {
+                sensor.currentValue += randomVariation(4500, 5500);
+            }
+
+            return clamp(sensor.currentValue, 0, 60000);
+        }
     }
 }
 
