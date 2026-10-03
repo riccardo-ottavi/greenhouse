@@ -1,5 +1,5 @@
 import { db } from "../database/connection.js";
-import { Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
+import { DeviceReadingInput, Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
 import { AppError } from "../errors/AppError.js";
 
@@ -194,4 +194,131 @@ export async function getReadingsBySensorId(
   );
 
   return rows as Reading[];
+}
+
+export async function validateSensorBelongsToDevice(
+  deviceId: string,
+  sensorId: number
+): Promise<void> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        sensors.id
+      FROM sensors
+      INNER JOIN devices
+        ON sensors.device_id = devices.id
+      WHERE devices.device_id = ?
+        AND sensors.id = ?
+    `,
+    [deviceId, sensorId]
+  );
+
+  const sensors = rows as { id: number }[];
+
+  if (sensors.length === 0) {
+    throw new AppError(
+      "Sensor does not belong to device",
+      400
+    );
+  }
+}
+
+export async function createDeviceReadings(
+  input: DeviceReadingInput
+): Promise<Reading[]> {
+  const [deviceRows] = await db.query(
+    `
+      SELECT
+        id
+      FROM devices
+      WHERE device_id = ?
+    `,
+    [input.deviceId]
+  );
+
+  const devices = deviceRows as { id: number }[];
+
+  if (devices.length === 0) {
+    throw new AppError("Device not found", 404);
+  }
+
+  const createdReadings: Reading[] = [];
+
+  for (const reading of input.readings) {
+    await validateSensorBelongsToDevice(
+      input.deviceId,
+      reading.sensorId
+    );
+
+    const [sensorRows] = await db.query(
+      `
+        SELECT
+          id,
+          type
+        FROM sensors
+        WHERE id = ?
+      `,
+      [reading.sensorId]
+    );
+
+    const sensors = sensorRows as {
+      id: number;
+      type: SensorType;
+    }[];
+
+    const sensor = sensors[0];
+
+    validateReadingValue(sensor.type, reading.value);
+
+    const expectedUnit = getUnitFromSensorType(sensor.type);
+
+    if (reading.unit !== expectedUnit) {
+      throw new AppError(
+        `Invalid unit for sensor ${reading.sensorId}`,
+        400
+      );
+    }
+
+    const [result] = await db.query(
+      `
+        INSERT INTO readings
+          (sensor_id, value, unit, timestamp)
+        VALUES
+          (?, ?, ?, ?)
+      `,
+      [
+        reading.sensorId,
+        reading.value,
+        reading.unit,
+        new Date(reading.timestamp)
+      ]
+    );
+
+    const insertResult = result as { insertId: number };
+
+    await db.query(
+      `
+        UPDATE sensors
+        SET
+          current_value = ?,
+          last_update = ?
+        WHERE id = ?
+      `,
+      [
+        reading.value,
+        new Date(reading.timestamp),
+        reading.sensorId
+      ]
+    );
+
+    createdReadings.push({
+      id: insertResult.insertId,
+      sensorId: reading.sensorId,
+      value: reading.value,
+      unit: reading.unit,
+      timestamp: new Date(reading.timestamp)
+    });
+  }
+
+  return createdReadings;
 }
