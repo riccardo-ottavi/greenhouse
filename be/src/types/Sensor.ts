@@ -12,6 +12,7 @@ export type SensorStatus =
 
 export type Sensor = {
     id: number;
+    deviceId: number;
     name: string;
     type: SensorType;
     status: SensorStatus;
