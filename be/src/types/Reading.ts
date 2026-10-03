@@ -7,6 +7,11 @@ export type ReadingInput = {
     timestamp: string;
 };
 
+export type DeviceReadingInput = {
+    deviceId: string;
+    readings: ReadingInput[];
+};
+
 export type Reading = {
     id: number;
     sensorId: number;

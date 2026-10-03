@@ -5,6 +5,5 @@ const router = Router();
 
 router.get("/", index);
 router.get("/:id", show);
-router.post("/heartbeat", heartbeat);
 
 export default router;
