@@ -43,3 +43,20 @@ export async function getDeviceById(
 
   return devices[0];
 }
+
+export async function updateHeartbeat(
+  deviceId: string
+): Promise<boolean> {
+  const [result] = await db.query(
+    `
+      UPDATE devices
+      SET
+        status = 'ONLINE',
+        last_seen = CURRENT_TIMESTAMP
+      WHERE device_id = ?
+    `,
+    [deviceId]
+  );
+
+  return (result as any).affectedRows > 0;
+}
