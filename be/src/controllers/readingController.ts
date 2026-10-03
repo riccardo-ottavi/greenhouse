@@ -1,5 +1,5 @@
 import { AppError } from "../errors/AppError";
-import { createReading, getAllReadings, getReadingById, getReadingsBySensorId } from "../services/readingService";
+import { createDeviceReadings, createReading, getAllReadings, getReadingById, getReadingsBySensorId } from "../services/readingService";
 import { Request, Response } from "express";
 
 export async function index(
@@ -49,4 +49,13 @@ export async function getBySensorId(
   const readings = await getReadingsBySensorId(sensorId);
 
   res.json(readings);
+}
+
+export async function createFromDevice(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const readings = await createDeviceReadings(req.body);
+
+  res.status(201).json(readings);
 }
