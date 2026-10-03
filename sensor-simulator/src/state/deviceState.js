@@ -16,7 +16,9 @@ const deviceState = {
       state: "OFF",
       controlMode: "AUTO"
     }
-  }
+  },
+
+  executedCommands: []
 };
 
 export default deviceState;
