@@ -1,3 +1,4 @@
+import deviceState from "../state/deviceState.js";
 import { executeCommand } from "./commandService.js";
 
 const BACKEND_URL = "http://localhost:3000";
@@ -73,4 +74,8 @@ export async function startCommandPolling() {
       );
     }
   }, 2000);
+}
+
+export function getActuatorState(actuatorId) {
+  return deviceState.actuators[actuatorId];
 }

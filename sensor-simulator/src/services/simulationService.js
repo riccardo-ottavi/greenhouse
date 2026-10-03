@@ -1,3 +1,5 @@
+import { getActuatorState } from "./deviceService.js";
+
 const sensors = [
     {
         id: 1,
@@ -21,7 +23,7 @@ const sensors = [
     }
 ];
 
-function runSimulation() {
+export async function runSimulation() {
 
     sensors.forEach(async (sensor) => {
 
@@ -57,9 +59,17 @@ function generateNextValue(sensor) {
             sensor.currentValue += randomVariation(-2, 2);
             return clamp(sensor.currentValue, 20, 90);
 
-        case "SOIL_MOISTURE":
-            sensor.currentValue += randomVariation(-0.5, 0.5);
-            return clamp(sensor.currentValue, 10, 80);
+        case "SOIL_MOISTURE": {
+            const pump = getActuatorState(1);
+
+            if (pump.state === "ON") {
+                sensor.currentValue += randomVariation(0.70, 0.90);
+            } else {
+                sensor.currentValue += randomVariation(-0.07, -0.03);
+            }
+
+            return clamp(sensor.currentValue, 10, 90);
+        }
 
         case "LIGHT":
             sensor.currentValue += randomVariation(-50, 50);
@@ -91,10 +101,3 @@ async function sendReading(sensor, value) {
 
     return await response.json();
 }
-const SIMULATION_INTERVAL = 5000;
-
-runSimulation();
-
-setInterval(() => {
-    runSimulation();
-}, SIMULATION_INTERVAL);
