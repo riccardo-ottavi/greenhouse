@@ -4,6 +4,7 @@ import readingRouter from "./routes/readingRouter.js";
 import deviceRouter from "./routes/deviceRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import deviceApiRouter from "./routes/deviceApiRouter.js";
+import actuatorRouter from "./routes/actuatorRouter.js";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use("/api/sensors", sensorRouter);
 app.use("/api/readings", readingRouter);
 app.use("/api/devices", deviceRouter);
 app.use("/api/device", deviceApiRouter);
+app.use("/api/actuators", actuatorRouter);
 
 app.get("/", (_req, res) => {
   res.send("<h1>Greenhouse Monitoring System Homepage</h1>");
