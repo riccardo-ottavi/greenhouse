@@ -1,0 +1,2 @@
+ALTER TABLE sensors
+MODIFY COLUMN device_id INT NOT NULL;

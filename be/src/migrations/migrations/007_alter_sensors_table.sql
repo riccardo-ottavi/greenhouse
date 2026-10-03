@@ -1,0 +1,2 @@
+ALTER TABLE sensors
+ADD COLUMN device_id INT NULL AFTER id;
