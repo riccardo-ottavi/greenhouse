@@ -17,7 +17,7 @@ const sensors = [
     {
         id: 3,
         type: "SOIL_MOISTURE",
-        currentValue: 29,
+        currentValue: 40,
     },
     {
         id: 4,
