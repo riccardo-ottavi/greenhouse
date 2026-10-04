@@ -1,4 +1,4 @@
-import { getActuatorState } from "./deviceService.js";
+import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
 
 const outsideTemperature = 18;
 const outsideHumidity = 70;
@@ -17,7 +17,7 @@ const sensors = [
     {
         id: 3,
         type: "SOIL_MOISTURE",
-        currentValue: 40,
+        currentValue: 29,
     },
     {
         id: 4,
@@ -27,26 +27,30 @@ const sensors = [
 ];
 
 export async function runSimulation() {
-
     sensors.forEach(async (sensor) => {
-
         const value = generateNextValue(sensor);
 
         try {
             const reading = await sendReading(sensor, value);
-
-            console.log(
-                `${sensor.type} - Reading sent:`,
-                reading
-            );
+            console.log(`${sensor.type} - Reading sent:`, reading);
         } catch (error) {
-            console.error(
-                `${sensor.type} - Error sending reading:`,
-                error
-            );
+            console.error(`${sensor.type} - Error sending reading:`, error);
         }
     });
+
+    applyAutomaticRules();
+
+    try {
+        await sendDeviceStatus();
+        console.log("Device status sent");
+    } catch (error) {
+        console.error(
+            "Device status error:",
+            error.message
+        );
+    }
 }
+
 
 function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
@@ -187,4 +191,30 @@ async function sendReading(sensor, value) {
     }
 
     return await response.json();
+}
+
+function applyAutomaticRules() {
+    const pump = getActuatorState(1);
+    const soilSensor = sensors.find(
+        (sensor) => sensor.id === 3
+    );
+
+    if (
+        pump.controlMode === "AUTO" &&
+        soilSensor
+    ) {
+        if (
+            soilSensor.currentValue < 30 &&
+            pump.state === "OFF"
+        ) {
+            pump.state = "ON";
+        }
+
+        if (
+            soilSensor.currentValue >= 50 &&
+            pump.state === "ON"
+        ) {
+            pump.state = "OFF";
+        }
+    }
 }

@@ -1,3 +1,4 @@
+import { updateActuatorStatus } from "../services/actuatorService";
 import { getAllDevices, getDeviceById, updateHeartbeat } from "../services/deviceService";
 import { Request, Response } from "express";
 
@@ -74,6 +75,57 @@ export async function heartbeat(req: Request, res: Response) {
         console.error(err);
         res.status(500).json({
             message: "Couldn't update device heartbeat"
+        });
+    }
+}
+
+export async function updateStatus(req: Request, res: Response) {
+    try {
+        const { deviceId, actuators } = req.body;
+
+        if (!deviceId || typeof deviceId !== "string") {
+            res.status(400).json({
+                message: "deviceId is required"
+            });
+            return;
+        }
+
+        if (!Array.isArray(actuators)) {
+            res.status(400).json({
+                message: "actuators must be an array"
+            });
+            return;
+        }
+
+        for (const actuator of actuators) {
+            if (
+                typeof actuator.actuatorId !== "number" ||
+                !["ON", "OFF"].includes(actuator.state) ||
+                !["AUTO", "MANUAL"].includes(actuator.controlMode)
+            ) {
+                res.status(400).json({
+                    message: "Invalid actuator status"
+                });
+                return;
+            }
+
+            await updateActuatorStatus(
+                deviceId,
+                actuator.actuatorId,
+                actuator.state,
+                actuator.controlMode
+            );
+        }
+
+        res.json({
+            message: "Device status updated"
+        });
+    }
+
+    catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: "Couldn't update device status"
         });
     }
 }
