@@ -174,20 +174,38 @@ function clamp(value, min, max) {
 }
 
 async function sendReading(sensor, value) {
-    const response = await fetch("http://localhost:3000/api/readings", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            sensorId: sensor.id,
-            value: value,
-            timestamp: new Date().toISOString()
-        })
-    });
+    const unitBySensorType = {
+        TEMPERATURE: "°C",
+        HUMIDITY: "%",
+        SOIL_MOISTURE: "%",
+        LIGHT: "lux"
+    };
+
+    const response = await fetch(
+        "http://localhost:3000/api/device/readings",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                deviceId: "GREENHOUSE_001",
+                readings: [
+                    {
+                        sensorId: sensor.id,
+                        value: value,
+                        unit: unitBySensorType[sensor.type],
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            })
+        }
+    );
 
     if (!response.ok) {
-        throw new Error(`Failed to send reading: ${response.status}`);
+        throw new Error(
+            `Failed to send reading: ${response.status}`
+        );
     }
 
     return await response.json();
