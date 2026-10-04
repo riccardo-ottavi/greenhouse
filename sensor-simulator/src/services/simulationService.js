@@ -213,8 +213,23 @@ async function sendReading(sensor, value) {
 
 function applyAutomaticRules() {
     const pump = getActuatorState(1);
+    const fan = getActuatorState(2);
+    const growLight = getActuatorState(3);
+
+    const temperatureSensor = sensors.find(
+        (sensor) => sensor.id === 1
+    );
+
+    const humiditySensor = sensors.find(
+        (sensor) => sensor.id === 2
+    );
+
     const soilSensor = sensors.find(
         (sensor) => sensor.id === 3
+    );
+
+    const lightSensor = sensors.find(
+        (sensor) => sensor.id === 4
     );
 
     if (
@@ -233,6 +248,63 @@ function applyAutomaticRules() {
             pump.state === "ON"
         ) {
             pump.state = "OFF";
+        }
+    }
+
+    if (
+        fan.controlMode === "AUTO" &&
+        temperatureSensor &&
+        humiditySensor
+    ) {
+        const shouldTurnOn =
+            temperatureSensor.currentValue > 28 ||
+            humiditySensor.currentValue > 75;
+
+        const shouldTurnOff =
+            temperatureSensor.currentValue < 25 &&
+            humiditySensor.currentValue < 70;
+
+        if (
+            shouldTurnOn &&
+            fan.state === "OFF"
+        ) {
+            fan.state = "ON";
+        }
+
+        if (
+            shouldTurnOff &&
+            fan.state === "ON"
+        ) {
+            fan.state = "OFF";
+        }
+    }
+
+    if (
+        growLight.controlMode === "AUTO" &&
+        lightSensor
+    ) {
+        const hour = new Date().getHours();
+
+        const withinOperatingWindow =
+            hour >= 6 &&
+            hour < 20;
+
+        if (!withinOperatingWindow) {
+            growLight.state = "OFF";
+        } else {
+            if (
+                lightSensor.currentValue < 10000 &&
+                growLight.state === "OFF"
+            ) {
+                growLight.state = "ON";
+            }
+
+            if (
+                lightSensor.currentValue >= 15000 &&
+                growLight.state === "ON"
+            ) {
+                growLight.state = "OFF";
+            }
         }
     }
 }
