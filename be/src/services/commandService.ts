@@ -39,7 +39,11 @@ export async function completeCommand(
   const [rows] = await db.query(
     `
       SELECT
-        commands.id
+        commands.id,
+        commands.actuator_id AS actuatorId,
+        commands.type,
+        commands.state,
+        commands.control_mode AS controlMode
       FROM commands
       INNER JOIN devices
         ON commands.device_id = devices.id
@@ -49,9 +53,17 @@ export async function completeCommand(
     [commandId, deviceId]
   );
 
-  const commands = rows as { id: number }[];
+  const commands = rows as {
+    id: number;
+    actuatorId: number;
+    type: CommandType;
+    state: ActuatorState | null;
+    controlMode: ControlMode | null;
+  }[];
 
-  if (commands.length === 0) {
+  const command = commands[0];
+
+  if (!command) {
     throw new AppError(
       "Command not found or does not belong to device",
       404
@@ -71,6 +83,42 @@ export async function completeCommand(
       commandId
     ]
   );
+
+  if (!success) {
+    return;
+  }
+
+  if (command.type === "SET_ACTUATOR_STATE") {
+    await db.query(
+      `
+        UPDATE actuators
+        SET
+          state = ?,
+          last_update = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [
+        command.state,
+        command.actuatorId
+      ]
+    );
+  }
+
+  if (command.type === "SET_CONTROL_MODE") {
+    await db.query(
+      `
+        UPDATE actuators
+        SET
+          control_mode = ?,
+          last_update = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [
+        command.controlMode,
+        command.actuatorId
+      ]
+    );
+  }
 }
 
 export async function createCommand(
