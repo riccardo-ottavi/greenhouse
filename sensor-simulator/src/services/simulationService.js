@@ -7,7 +7,7 @@ const sensors = [
     {
         id: 1,
         type: "TEMPERATURE",
-        currentValue: 23.5,
+        currentValue: 22,
     },
     {
         id: 2,
@@ -17,28 +17,49 @@ const sensors = [
     {
         id: 3,
         type: "SOIL_MOISTURE",
-        currentValue: 40,
+        currentValue: 45,
     },
     {
         id: 4,
         type: "LIGHT",
-        currentValue: 750,
+        currentValue: 10000,
     }
 ];
 
 export async function runSimulation() {
-    sensors.forEach(async (sensor) => {
-        const value = generateNextValue(sensor);
-
-        try {
-            const reading = await sendReading(sensor, value);
-            console.log(`${sensor.type} - Reading sent:`, reading);
-        } catch (error) {
-            console.error(`${sensor.type} - Error sending reading:`, error);
-        }
+    sensors.forEach((sensor) => {
+        generateNextValue(sensor);
     });
 
     applyAutomaticRules();
+
+    try {
+        await Promise.all(
+            sensors.map(async (sensor) => {
+                try {
+                    const reading = await sendReading(
+                        sensor,
+                        sensor.currentValue
+                    );
+
+                    console.log(
+                        `${sensor.type} - Reading sent:`,
+                        reading
+                    );
+                } catch (error) {
+                    console.error(
+                        `${sensor.type} - Error sending reading:`,
+                        error
+                    );
+                }
+            })
+        );
+    } catch (error) {
+        console.error(
+            "Simulation readings error:",
+            error
+        );
+    }
 
     try {
         await sendDeviceStatus();
