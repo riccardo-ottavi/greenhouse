@@ -1,5 +1,8 @@
 import { getActuatorState } from "./deviceService.js";
 
+const outsideTemperature = 18;
+const outsideHumidity = 70;
+
 const sensors = [
     {
         id: 1,
@@ -49,28 +52,79 @@ function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
 }
 
+function getNaturalLight() {
+    const hour = new Date().getHours();
+
+    if (hour < 6 || hour >= 21) {
+        return 0;
+    }
+
+    if (hour < 9) {
+        return ((hour - 6) / 3) * 10000;
+    }
+
+    if (hour < 12) {
+        return 10000 + ((hour - 9) / 3) * 15000;
+    }
+
+    if (hour < 15) {
+        return 25000 - ((hour - 12) / 3) * 5000;
+    }
+
+    if (hour < 18) {
+        return 20000 - ((hour - 15) / 3) * 15000;
+    }
+
+    return 5000 - ((hour - 18) / 3) * 5000;
+}
+
 function generateNextValue(sensor) {
     switch (sensor.type) {
         case "TEMPERATURE": {
             const fan = getActuatorState(2);
+            const growLight = getActuatorState(3);
 
-            sensor.currentValue += randomVariation(-0.5, 0.5);
+            const temperatureDifference =
+                outsideTemperature - sensor.currentValue;
+
+            sensor.currentValue += temperatureDifference * 0.10;
 
             if (fan.state === "ON") {
                 sensor.currentValue -= randomVariation(0.12, 0.18);
             }
+
+            if (growLight.state === "ON") {
+                sensor.currentValue += randomVariation(0.02, 0.04);
+            }
+
+            sensor.currentValue += randomVariation(-0.05, 0.05);
 
             return clamp(sensor.currentValue, 10, 35);
         }
 
         case "HUMIDITY": {
             const fan = getActuatorState(2);
+            const pump = getActuatorState(1);
+            const growLight = getActuatorState(3);
 
-            sensor.currentValue += randomVariation(-2, 2);
+            const humidityDifference =
+                outsideHumidity - sensor.currentValue;
+
+            sensor.currentValue += humidityDifference * 0.02;
+
+            if (pump.state === "ON") {
+                sensor.currentValue += randomVariation(0.80, 1.20);
+            }
 
             if (fan.state === "ON") {
                 sensor.currentValue -= randomVariation(0.25, 0.35);
             }
+
+            if (growLight.state === "ON") {
+                sensor.currentValue -= randomVariation(0.03, 0.07);
+            }
+
+            sensor.currentValue += randomVariation(-0.05, 0.05);
 
             return clamp(sensor.currentValue, 20, 95);
         }
@@ -90,11 +144,20 @@ function generateNextValue(sensor) {
         case "LIGHT": {
             const growLight = getActuatorState(3);
 
-            sensor.currentValue += randomVariation(-50, 50);
+            const naturalLight = getNaturalLight();
+
+            let targetLight = naturalLight;
 
             if (growLight.state === "ON") {
-                sensor.currentValue += randomVariation(4500, 5500);
+                targetLight += 5000;
             }
+
+            const lightDifference =
+                targetLight - sensor.currentValue;
+
+            sensor.currentValue += lightDifference * 0.20;
+
+            sensor.currentValue += randomVariation(-50, 50);
 
             return clamp(sensor.currentValue, 0, 60000);
         }
