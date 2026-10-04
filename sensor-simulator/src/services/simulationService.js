@@ -1,4 +1,4 @@
-import { getActuatorState } from "./deviceService.js";
+import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
 
 const outsideTemperature = 18;
 const outsideHumidity = 70;
@@ -7,7 +7,7 @@ const sensors = [
     {
         id: 1,
         type: "TEMPERATURE",
-        currentValue: 23.5,
+        currentValue: 22,
     },
     {
         id: 2,
@@ -17,36 +17,61 @@ const sensors = [
     {
         id: 3,
         type: "SOIL_MOISTURE",
-        currentValue: 40,
+        currentValue: 45,
     },
     {
         id: 4,
         type: "LIGHT",
-        currentValue: 750,
+        currentValue: 10000,
     }
 ];
 
 export async function runSimulation() {
-
-    sensors.forEach(async (sensor) => {
-
-        const value = generateNextValue(sensor);
-
-        try {
-            const reading = await sendReading(sensor, value);
-
-            console.log(
-                `${sensor.type} - Reading sent:`,
-                reading
-            );
-        } catch (error) {
-            console.error(
-                `${sensor.type} - Error sending reading:`,
-                error
-            );
-        }
+    sensors.forEach((sensor) => {
+        generateNextValue(sensor);
     });
+
+    applyAutomaticRules();
+
+    try {
+        await Promise.all(
+            sensors.map(async (sensor) => {
+                try {
+                    const reading = await sendReading(
+                        sensor,
+                        sensor.currentValue
+                    );
+
+                    console.log(
+                        `${sensor.type} - Reading sent:`,
+                        reading
+                    );
+                } catch (error) {
+                    console.error(
+                        `${sensor.type} - Error sending reading:`,
+                        error
+                    );
+                }
+            })
+        );
+    } catch (error) {
+        console.error(
+            "Simulation readings error:",
+            error
+        );
+    }
+
+    try {
+        await sendDeviceStatus();
+        console.log("Device status sent");
+    } catch (error) {
+        console.error(
+            "Device status error:",
+            error.message
+        );
+    }
 }
+
 
 function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
@@ -170,21 +195,137 @@ function clamp(value, min, max) {
 }
 
 async function sendReading(sensor, value) {
-    const response = await fetch("http://localhost:3000/api/readings", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            sensorId: sensor.id,
-            value: value,
-            timestamp: new Date().toISOString()
-        })
-    });
+    const unitBySensorType = {
+        TEMPERATURE: "°C",
+        HUMIDITY: "%",
+        SOIL_MOISTURE: "%",
+        LIGHT: "lux"
+    };
+
+    const response = await fetch(
+        "http://localhost:3000/api/device/readings",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                deviceId: "GREENHOUSE_001",
+                readings: [
+                    {
+                        sensorId: sensor.id,
+                        value: value,
+                        unit: unitBySensorType[sensor.type],
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            })
+        }
+    );
 
     if (!response.ok) {
-        throw new Error(`Failed to send reading: ${response.status}`);
+        throw new Error(
+            `Failed to send reading: ${response.status}`
+        );
     }
 
     return await response.json();
+}
+
+function applyAutomaticRules() {
+    const pump = getActuatorState(1);
+    const fan = getActuatorState(2);
+    const growLight = getActuatorState(3);
+
+    const temperatureSensor = sensors.find(
+        (sensor) => sensor.id === 1
+    );
+
+    const humiditySensor = sensors.find(
+        (sensor) => sensor.id === 2
+    );
+
+    const soilSensor = sensors.find(
+        (sensor) => sensor.id === 3
+    );
+
+    const lightSensor = sensors.find(
+        (sensor) => sensor.id === 4
+    );
+
+    if (
+        pump.controlMode === "AUTO" &&
+        soilSensor
+    ) {
+        if (
+            soilSensor.currentValue < 30 &&
+            pump.state === "OFF"
+        ) {
+            pump.state = "ON";
+        }
+
+        if (
+            soilSensor.currentValue >= 50 &&
+            pump.state === "ON"
+        ) {
+            pump.state = "OFF";
+        }
+    }
+
+    if (
+        fan.controlMode === "AUTO" &&
+        temperatureSensor &&
+        humiditySensor
+    ) {
+        const shouldTurnOn =
+            temperatureSensor.currentValue > 28 ||
+            humiditySensor.currentValue > 75;
+
+        const shouldTurnOff =
+            temperatureSensor.currentValue < 25 &&
+            humiditySensor.currentValue < 70;
+
+        if (
+            shouldTurnOn &&
+            fan.state === "OFF"
+        ) {
+            fan.state = "ON";
+        }
+
+        if (
+            shouldTurnOff &&
+            fan.state === "ON"
+        ) {
+            fan.state = "OFF";
+        }
+    }
+
+    if (
+        growLight.controlMode === "AUTO" &&
+        lightSensor
+    ) {
+        const hour = new Date().getHours();
+
+        const withinOperatingWindow =
+            hour >= 6 &&
+            hour < 20;
+
+        if (!withinOperatingWindow) {
+            growLight.state = "OFF";
+        } else {
+            if (
+                lightSensor.currentValue < 10000 &&
+                growLight.state === "OFF"
+            ) {
+                growLight.state = "ON";
+            }
+
+            if (
+                lightSensor.currentValue >= 15000 &&
+                growLight.state === "ON"
+            ) {
+                growLight.state = "OFF";
+            }
+        }
+    }
 }

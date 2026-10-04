@@ -79,3 +79,33 @@ export async function startCommandPolling() {
 export function getActuatorState(actuatorId) {
   return deviceState.actuators[actuatorId];
 }
+
+export async function sendDeviceStatus() {
+  const response = await fetch(
+    `${BACKEND_URL}/api/device/status`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        deviceId: DEVICE_ID,
+        actuators: Object.entries(deviceState.actuators).map(
+          ([actuatorId, actuator]) => ({
+            actuatorId: Number(actuatorId),
+            state: actuator.state,
+            controlMode: actuator.controlMode
+          })
+        )
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to send device status: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
