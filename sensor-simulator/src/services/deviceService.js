@@ -109,3 +109,52 @@ export async function sendDeviceStatus() {
 
   return response.json();
 }
+
+export async function startHeartbeat() {
+  console.log("Heartbeat started");
+
+  try {
+    await sendHeartbeat();
+    console.log("Heartbeat sent");
+  } catch (error) {
+    console.error(
+      "Heartbeat error:",
+      error.message
+    );
+  }
+
+  setInterval(async () => {
+    try {
+      await sendHeartbeat();
+      console.log("Heartbeat sent");
+    } catch (error) {
+      console.error(
+        "Heartbeat error:",
+        error.message
+      );
+    }
+  }, 10000);
+}
+
+export async function sendHeartbeat() {
+  const response = await fetch(
+    `${BACKEND_URL}/api/device/heartbeat`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        deviceId: DEVICE_ID
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to send heartbeat: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
