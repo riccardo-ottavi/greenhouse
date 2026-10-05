@@ -1,7 +1,5 @@
 import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
-
-const outsideTemperature = 18;
-const outsideHumidity = 70;
+import { getOutsideWeather } from "./weatherService.js";
 
 const sensors = [
     {
@@ -27,8 +25,10 @@ const sensors = [
 ];
 
 export async function runSimulation() {
+    const weather = await getOutsideWeather();
+
     sensors.forEach((sensor) => {
-        generateNextValue(sensor);
+        generateNextValue(sensor, weather);
     });
 
     applyAutomaticRules();
@@ -103,14 +103,14 @@ function getNaturalLight() {
     return 5000 - ((hour - 18) / 3) * 5000;
 }
 
-function generateNextValue(sensor) {
+function generateNextValue(sensor, weather) {
     switch (sensor.type) {
         case "TEMPERATURE": {
             const fan = getActuatorState(2);
             const growLight = getActuatorState(3);
 
             const temperatureDifference =
-                outsideTemperature - sensor.currentValue;
+                weather.temperature - sensor.currentValue;
 
             sensor.currentValue += temperatureDifference * 0.10;
 
@@ -133,7 +133,7 @@ function generateNextValue(sensor) {
             const growLight = getActuatorState(3);
 
             const humidityDifference =
-                outsideHumidity - sensor.currentValue;
+                weather.humidity - sensor.currentValue;
 
             sensor.currentValue += humidityDifference * 0.02;
 
