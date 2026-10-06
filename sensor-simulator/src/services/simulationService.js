@@ -262,6 +262,9 @@ function applyAutomaticRules() {
             pump.state === "OFF"
         ) {
             pump.state = "ON";
+            console.log(
+                `Pump: OFF → ON (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
+            );
         }
 
         if (
@@ -269,6 +272,9 @@ function applyAutomaticRules() {
             pump.state === "ON"
         ) {
             pump.state = "OFF";
+            console.log(
+                `Pump: ON → OFF (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
+            );
         }
     }
 
@@ -290,6 +296,9 @@ function applyAutomaticRules() {
             fan.state === "OFF"
         ) {
             fan.state = "ON";
+            console.log(
+                `Fan: OFF → ON (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
+            );
         }
 
         if (
@@ -297,6 +306,9 @@ function applyAutomaticRules() {
             fan.state === "ON"
         ) {
             fan.state = "OFF";
+            console.log(
+                `Fan: ON → OFF (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
+            );
         }
     }
 
@@ -311,13 +323,21 @@ function applyAutomaticRules() {
             hour < 20;
 
         if (!withinOperatingWindow) {
-            growLight.state = "OFF";
+            if (growLight.state === "ON") {
+                growLight.state = "OFF";
+                console.log(
+                    `Grow light: ON → OFF (outside operating window)`
+                );
+            }
         } else {
             if (
                 lightSensor.currentValue < 10000 &&
                 growLight.state === "OFF"
             ) {
                 growLight.state = "ON";
+                console.log(
+                    `Grow light: OFF → ON (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
             }
 
             if (
@@ -325,6 +345,9 @@ function applyAutomaticRules() {
                 growLight.state === "ON"
             ) {
                 growLight.state = "OFF";
+                console.log(
+                    `Grow light: ON → OFF (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
             }
         }
     }
