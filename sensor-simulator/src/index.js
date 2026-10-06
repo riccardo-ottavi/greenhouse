@@ -1,10 +1,29 @@
-import { startCommandPolling, startHeartbeat } from "./services/deviceService.js";
+import {
+    initializeDeviceState,
+    startCommandPolling,
+    startHeartbeat
+} from "./services/deviceService.js";
+
 import { runSimulation } from "./services/simulationService.js";
 
-startCommandPolling();
-startHeartbeat();
-runSimulation();
+async function startDevice() {
+    try {
+        await initializeDeviceState();
 
-setInterval(() => {
-  runSimulation();
-}, 5000);
+        startCommandPolling();
+        startHeartbeat();
+
+        await runSimulation();
+
+        setInterval(() => {
+            runSimulation();
+        }, 5000);
+    } catch (error) {
+        console.error(
+            "Device startup error:",
+            error.message
+        );
+    }
+}
+
+startDevice();
