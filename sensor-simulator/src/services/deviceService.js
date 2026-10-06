@@ -61,6 +61,34 @@ export async function processPendingCommands() {
   }
 }
 
+export async function initializeDeviceState() {
+    const response = await fetch(
+        `${BACKEND_URL}/api/device/config?deviceId=${DEVICE_ID}`
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            `Failed to get device configuration: ${response.status}`
+        );
+    }
+
+    const data = await response.json();
+
+    for (const actuator of data.actuators) {
+        const localActuator =
+            deviceState.actuators[actuator.actuatorId];
+
+        if (!localActuator) {
+            continue;
+        }
+
+        localActuator.state = actuator.state;
+        localActuator.controlMode = actuator.controlMode;
+    }
+
+    console.log("Device state initialized from backend");
+}
+
 export async function startCommandPolling() {
   console.log("Command polling started");
 

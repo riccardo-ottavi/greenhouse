@@ -19,6 +19,30 @@ export async function getAllDevices(): Promise<Device[]> {
   return rows as Device[];
 }
 
+export async function getDeviceActuatorStates(
+  deviceId: string
+) {
+  const [rows] = await db.query(
+    `
+      SELECT
+        actuators.id AS actuatorId,
+        actuators.state,
+        actuators.control_mode AS controlMode
+      FROM actuators
+      INNER JOIN devices
+        ON actuators.device_id = devices.id
+      WHERE devices.device_id = ?
+      ORDER BY actuators.id ASC
+    `,
+    [deviceId]
+  );
+
+  return rows as {
+    actuatorId: number;
+    state: "ON" | "OFF";
+    controlMode: "AUTO" | "MANUAL";
+  }[];
+}
 
 export async function getDeviceById(
   id: number
