@@ -1,26 +1,27 @@
 import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
 import { getOutsideWeather } from "./weatherService.js";
+import simulationConfig from "../config/simulationConfig.js";
 
 const sensors = [
     {
         id: 1,
         type: "TEMPERATURE",
-        currentValue: 22,
+        currentValue: simulationConfig.sensors.temperature.initialValue,
     },
     {
         id: 2,
         type: "HUMIDITY",
-        currentValue: 65,
+        currentValue: simulationConfig.sensors.humidity.initialValue,
     },
     {
         id: 3,
         type: "SOIL_MOISTURE",
-        currentValue: 45,
+        currentValue: simulationConfig.sensors.soilMoisture.initialValue,
     },
     {
         id: 4,
         type: "LIGHT",
-        currentValue: 10000,
+        currentValue: simulationConfig.sensors.light.initialValue,
     }
 ];
 
@@ -63,6 +64,7 @@ export async function runSimulation() {
 
     try {
         await sendDeviceStatus();
+
         console.log("Device status sent");
     } catch (error) {
         console.error(
@@ -72,35 +74,61 @@ export async function runSimulation() {
     }
 }
 
-
 function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
 }
 
 function getNaturalLight() {
     const hour = new Date().getHours();
+    const config = simulationConfig.sensors.light.naturalLight;
 
-    if (hour < 6 || hour >= 21) {
-        return 0;
+    if (
+        hour >= config.night.startHour ||
+        hour < config.night.endHour
+    ) {
+        return config.night.value;
     }
 
-    if (hour < 9) {
-        return ((hour - 6) / 3) * 10000;
+    if (
+        hour >= config.morning.startHour &&
+        hour < config.morning.endHour
+    ) {
+        return interpolateLight(hour, config.morning);
     }
 
-    if (hour < 12) {
-        return 10000 + ((hour - 9) / 3) * 15000;
+    if (
+        hour >= config.lateMorning.startHour &&
+        hour < config.lateMorning.endHour
+    ) {
+        return interpolateLight(hour, config.lateMorning);
     }
 
-    if (hour < 15) {
-        return 25000 - ((hour - 12) / 3) * 5000;
+    if (
+        hour >= config.afternoon.startHour &&
+        hour < config.afternoon.endHour
+    ) {
+        return interpolateLight(hour, config.afternoon);
     }
 
-    if (hour < 18) {
-        return 20000 - ((hour - 15) / 3) * 15000;
+    if (
+        hour >= config.evening.startHour &&
+        hour < config.evening.endHour
+    ) {
+        return interpolateLight(hour, config.evening);
     }
 
-    return 5000 - ((hour - 18) / 3) * 5000;
+    return interpolateLight(hour, config.sunset);
+}
+
+function interpolateLight(hour, period) {
+    const progress =
+        (hour - period.startHour) /
+        (period.endHour - period.startHour);
+
+    return (
+        period.startValue +
+        (period.endValue - period.startValue) * progress
+    );
 }
 
 function generateNextValue(sensor, weather) {
@@ -109,22 +137,40 @@ function generateNextValue(sensor, weather) {
             const fan = getActuatorState(2);
             const growLight = getActuatorState(3);
 
+            const config =
+                simulationConfig.sensors.temperature;
+
             const temperatureDifference =
                 weather.temperature - sensor.currentValue;
 
-            sensor.currentValue += temperatureDifference * 0.10;
+            sensor.currentValue +=
+                temperatureDifference *
+                config.outsideInfluence;
 
             if (fan.state === "ON") {
-                sensor.currentValue -= randomVariation(0.12, 0.18);
+                sensor.currentValue -= randomVariation(
+                    config.fanEffect.min,
+                    config.fanEffect.max
+                );
             }
 
             if (growLight.state === "ON") {
-                sensor.currentValue += randomVariation(0.02, 0.04);
+                sensor.currentValue += randomVariation(
+                    config.growLightEffect.min,
+                    config.growLightEffect.max
+                );
             }
 
-            sensor.currentValue += randomVariation(-0.05, 0.05);
+            sensor.currentValue += randomVariation(
+                config.randomVariation.min,
+                config.randomVariation.max
+            );
 
-            return clamp(sensor.currentValue, 10, 35);
+            return clamp(
+                sensor.currentValue,
+                config.min,
+                config.max
+            );
         }
 
         case "HUMIDITY": {
@@ -132,71 +178,120 @@ function generateNextValue(sensor, weather) {
             const pump = getActuatorState(1);
             const growLight = getActuatorState(3);
 
+            const config =
+                simulationConfig.sensors.humidity;
+
             const humidityDifference =
                 weather.humidity - sensor.currentValue;
 
-            sensor.currentValue += humidityDifference * 0.02;
+            sensor.currentValue +=
+                humidityDifference *
+                config.outsideInfluence;
 
             if (pump.state === "ON") {
-                sensor.currentValue += randomVariation(0.80, 1.20);
+                sensor.currentValue += randomVariation(
+                    config.pumpEffect.min,
+                    config.pumpEffect.max
+                );
             }
 
             if (fan.state === "ON") {
-                sensor.currentValue -= randomVariation(0.25, 0.35);
+                sensor.currentValue -= randomVariation(
+                    config.fanEffect.min,
+                    config.fanEffect.max
+                );
             }
 
             if (growLight.state === "ON") {
-                sensor.currentValue -= randomVariation(0.03, 0.07);
+                sensor.currentValue -= randomVariation(
+                    config.growLightEffect.min,
+                    config.growLightEffect.max
+                );
             }
 
-            sensor.currentValue += randomVariation(-0.05, 0.05);
+            sensor.currentValue += randomVariation(
+                config.randomVariation.min,
+                config.randomVariation.max
+            );
 
-            return clamp(sensor.currentValue, 20, 95);
+            return clamp(
+                sensor.currentValue,
+                config.min,
+                config.max
+            );
         }
 
         case "SOIL_MOISTURE": {
             const pump = getActuatorState(1);
             const growLight = getActuatorState(3);
 
+            const config =
+                simulationConfig.sensors.soilMoisture;
+
             if (pump.state === "ON") {
-                sensor.currentValue += randomVariation(0.70, 0.90);
+                sensor.currentValue += randomVariation(
+                    config.pumpEffect.min,
+                    config.pumpEffect.max
+                );
             } else {
-                sensor.currentValue += randomVariation(-0.07, -0.03);
+                sensor.currentValue += randomVariation(
+                    config.naturalDrying.min,
+                    config.naturalDrying.max
+                );
             }
 
             if (growLight.state === "ON") {
-                sensor.currentValue -= 0.02;
+                sensor.currentValue -=
+                    config.growLightEffect;
             }
 
-            return clamp(sensor.currentValue, 10, 90);
+            return clamp(
+                sensor.currentValue,
+                config.min,
+                config.max
+            );
         }
 
         case "LIGHT": {
             const growLight = getActuatorState(3);
+
+            const config =
+                simulationConfig.sensors.light;
 
             const naturalLight = getNaturalLight();
 
             let targetLight = naturalLight;
 
             if (growLight.state === "ON") {
-                targetLight += 5000;
+                targetLight += config.growLightEffect;
             }
 
             const lightDifference =
                 targetLight - sensor.currentValue;
 
-            sensor.currentValue += lightDifference * 0.20;
+            sensor.currentValue +=
+                lightDifference *
+                config.responseRate;
 
-            sensor.currentValue += randomVariation(-50, 50);
+            sensor.currentValue += randomVariation(
+                config.randomVariation.min,
+                config.randomVariation.max
+            );
 
-            return clamp(sensor.currentValue, 0, 60000);
+            return clamp(
+                sensor.currentValue,
+                config.min,
+                config.max
+            );
         }
     }
 }
 
-
 function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
+    return Math.min(
+        Math.max(value, min),
+        max
+    );
 }
 
 async function sendReading(sensor, value) {
@@ -258,25 +353,32 @@ function applyAutomaticRules() {
         (sensor) => sensor.id === 4
     );
 
+    const rules =
+        simulationConfig.automaticRules;
+
     if (
         pump.controlMode === "AUTO" &&
         soilSensor
     ) {
         if (
-            soilSensor.currentValue < 30 &&
+            soilSensor.currentValue <
+                rules.pump.turnOnBelow &&
             pump.state === "OFF"
         ) {
             pump.state = "ON";
+
             console.log(
                 `Pump: OFF → ON (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
             );
         }
 
         if (
-            soilSensor.currentValue >= 50 &&
+            soilSensor.currentValue >=
+                rules.pump.turnOffAtOrAbove &&
             pump.state === "ON"
         ) {
             pump.state = "OFF";
+
             console.log(
                 `Pump: ON → OFF (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
             );
@@ -289,18 +391,23 @@ function applyAutomaticRules() {
         humiditySensor
     ) {
         const shouldTurnOn =
-            temperatureSensor.currentValue > 28 ||
-            humiditySensor.currentValue > 75;
+            temperatureSensor.currentValue >
+                rules.fan.turnOnAbove.temperature ||
+            humiditySensor.currentValue >
+                rules.fan.turnOnAbove.humidity;
 
         const shouldTurnOff =
-            temperatureSensor.currentValue < 25 &&
-            humiditySensor.currentValue < 70;
+            temperatureSensor.currentValue <
+                rules.fan.turnOffBelow.temperature &&
+            humiditySensor.currentValue <
+                rules.fan.turnOffBelow.humidity;
 
         if (
             shouldTurnOn &&
             fan.state === "OFF"
         ) {
             fan.state = "ON";
+
             console.log(
                 `Fan: OFF → ON (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
             );
@@ -311,6 +418,7 @@ function applyAutomaticRules() {
             fan.state === "ON"
         ) {
             fan.state = "OFF";
+
             console.log(
                 `Fan: ON → OFF (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
             );
@@ -324,32 +432,39 @@ function applyAutomaticRules() {
         const hour = new Date().getHours();
 
         const withinOperatingWindow =
-            hour >= 6 &&
-            hour < 20;
+            hour >=
+                rules.growLight.operatingWindow.startHour &&
+            hour <
+                rules.growLight.operatingWindow.endHour;
 
         if (!withinOperatingWindow) {
             if (growLight.state === "ON") {
                 growLight.state = "OFF";
+
                 console.log(
-                    `Grow light: ON → OFF (outside operating window)`
+                    "Grow light: ON → OFF (outside operating window)"
                 );
             }
         } else {
             if (
-                lightSensor.currentValue < 10000 &&
+                lightSensor.currentValue <
+                    rules.growLight.turnOnBelow &&
                 growLight.state === "OFF"
             ) {
                 growLight.state = "ON";
+
                 console.log(
                     `Grow light: OFF → ON (light: ${lightSensor.currentValue.toFixed(2)} lux)`
                 );
             }
 
             if (
-                lightSensor.currentValue >= 15000 &&
+                lightSensor.currentValue >=
+                    rules.growLight.turnOffAtOrAbove &&
                 growLight.state === "ON"
             ) {
                 growLight.state = "OFF";
+
                 console.log(
                     `Grow light: ON → OFF (light: ${lightSensor.currentValue.toFixed(2)} lux)`
                 );
