@@ -36,88 +36,130 @@ export async function completeCommand(
   deviceId: string,
   success: boolean
 ): Promise<void> {
-  const [rows] = await db.query(
-    `
-      SELECT
-        commands.id,
-        commands.actuator_id AS actuatorId,
-        commands.type,
-        commands.state,
-        commands.control_mode AS controlMode
-      FROM commands
-      INNER JOIN devices
-        ON commands.device_id = devices.id
-      WHERE commands.id = ?
-        AND devices.device_id = ?
-    `,
-    [commandId, deviceId]
-  );
+  const connection = await db.getConnection();
 
-  const commands = rows as {
-    id: number;
-    actuatorId: number;
-    type: CommandType;
-    state: ActuatorState | null;
-    controlMode: ControlMode | null;
-  }[];
+  try {
+    await connection.beginTransaction();
 
-  const command = commands[0];
-
-  if (!command) {
-    throw new AppError(
-      "Command not found or does not belong to device",
-      404
-    );
-  }
-
-  await db.query(
-    `
-      UPDATE commands
-      SET
-        status = ?,
-        completed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `,
-    [
-      success ? "EXECUTED" : "FAILED",
-      commandId
-    ]
-  );
-
-  if (!success) {
-    return;
-  }
-
-  if (command.type === "SET_ACTUATOR_STATE") {
-    await db.query(
+    const [rows] = await connection.query(
       `
-        UPDATE actuators
+        SELECT
+          commands.id,
+          commands.actuator_id AS actuatorId,
+          commands.type,
+          commands.state,
+          commands.control_mode AS controlMode,
+          commands.status
+        FROM commands
+        INNER JOIN devices
+          ON commands.device_id = devices.id
+        WHERE commands.id = ?
+          AND devices.device_id = ?
+        FOR UPDATE
+      `,
+      [commandId, deviceId]
+    );
+
+    const commands = rows as {
+      id: number;
+      actuatorId: number;
+      type: CommandType;
+      state: ActuatorState | null;
+      controlMode: ControlMode | null;
+      status: "PENDING" | "EXECUTED" | "FAILED";
+    }[];
+
+    const command = commands[0];
+
+    if (!command) {
+      throw new AppError(
+        "Command not found or does not belong to device",
+        404
+      );
+    }
+
+    if (command.status !== "PENDING") {
+      await connection.rollback();
+      return;
+    }
+
+    if (!success) {
+      await connection.query(
+        `
+          UPDATE commands
+          SET
+            status = 'FAILED',
+            completed_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `,
+        [commandId]
+      );
+
+      await connection.commit();
+      return;
+    }
+
+    if (command.type === "SET_ACTUATOR_STATE") {
+      await connection.query(
+        `
+          UPDATE actuators
+          SET
+            state = ?,
+            last_update = CURRENT_TIMESTAMP
+          WHERE id = ?
+            AND device_id = (
+              SELECT id
+              FROM devices
+              WHERE device_id = ?
+            )
+        `,
+        [
+          command.state,
+          command.actuatorId,
+          deviceId
+        ]
+      );
+    }
+
+    if (command.type === "SET_CONTROL_MODE") {
+      await connection.query(
+        `
+          UPDATE actuators
+          SET
+            control_mode = ?,
+            last_update = CURRENT_TIMESTAMP
+          WHERE id = ?
+            AND device_id = (
+              SELECT id
+              FROM devices
+              WHERE device_id = ?
+            )
+        `,
+        [
+          command.controlMode,
+          command.actuatorId,
+          deviceId
+        ]
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE commands
         SET
-          state = ?,
-          last_update = CURRENT_TIMESTAMP
+          status = 'EXECUTED',
+          completed_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `,
-      [
-        command.state,
-        command.actuatorId
-      ]
+      [commandId]
     );
-  }
 
-  if (command.type === "SET_CONTROL_MODE") {
-    await db.query(
-      `
-        UPDATE actuators
-        SET
-          control_mode = ?,
-          last_update = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `,
-      [
-        command.controlMode,
-        command.actuatorId
-      ]
-    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 }
 
