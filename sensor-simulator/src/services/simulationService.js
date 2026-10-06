@@ -1,7 +1,5 @@
 import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
-
-const outsideTemperature = 18;
-const outsideHumidity = 70;
+import { getOutsideWeather } from "./weatherService.js";
 
 const sensors = [
     {
@@ -27,8 +25,10 @@ const sensors = [
 ];
 
 export async function runSimulation() {
+    const weather = await getOutsideWeather();
+
     sensors.forEach((sensor) => {
-        generateNextValue(sensor);
+        generateNextValue(sensor, weather);
     });
 
     applyAutomaticRules();
@@ -103,14 +103,14 @@ function getNaturalLight() {
     return 5000 - ((hour - 18) / 3) * 5000;
 }
 
-function generateNextValue(sensor) {
+function generateNextValue(sensor, weather) {
     switch (sensor.type) {
         case "TEMPERATURE": {
             const fan = getActuatorState(2);
             const growLight = getActuatorState(3);
 
             const temperatureDifference =
-                outsideTemperature - sensor.currentValue;
+                weather.temperature - sensor.currentValue;
 
             sensor.currentValue += temperatureDifference * 0.10;
 
@@ -133,7 +133,7 @@ function generateNextValue(sensor) {
             const growLight = getActuatorState(3);
 
             const humidityDifference =
-                outsideHumidity - sensor.currentValue;
+                weather.humidity - sensor.currentValue;
 
             sensor.currentValue += humidityDifference * 0.02;
 
@@ -262,6 +262,9 @@ function applyAutomaticRules() {
             pump.state === "OFF"
         ) {
             pump.state = "ON";
+            console.log(
+                `Pump: OFF → ON (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
+            );
         }
 
         if (
@@ -269,6 +272,9 @@ function applyAutomaticRules() {
             pump.state === "ON"
         ) {
             pump.state = "OFF";
+            console.log(
+                `Pump: ON → OFF (soil moisture: ${soilSensor.currentValue.toFixed(2)}%)`
+            );
         }
     }
 
@@ -290,6 +296,9 @@ function applyAutomaticRules() {
             fan.state === "OFF"
         ) {
             fan.state = "ON";
+            console.log(
+                `Fan: OFF → ON (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
+            );
         }
 
         if (
@@ -297,6 +306,9 @@ function applyAutomaticRules() {
             fan.state === "ON"
         ) {
             fan.state = "OFF";
+            console.log(
+                `Fan: ON → OFF (temperature: ${temperatureSensor.currentValue.toFixed(2)}°C, humidity: ${humiditySensor.currentValue.toFixed(2)}%)`
+            );
         }
     }
 
@@ -311,13 +323,21 @@ function applyAutomaticRules() {
             hour < 20;
 
         if (!withinOperatingWindow) {
-            growLight.state = "OFF";
+            if (growLight.state === "ON") {
+                growLight.state = "OFF";
+                console.log(
+                    `Grow light: ON → OFF (outside operating window)`
+                );
+            }
         } else {
             if (
                 lightSensor.currentValue < 10000 &&
                 growLight.state === "OFF"
             ) {
                 growLight.state = "ON";
+                console.log(
+                    `Grow light: OFF → ON (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
             }
 
             if (
@@ -325,6 +345,9 @@ function applyAutomaticRules() {
                 growLight.state === "ON"
             ) {
                 growLight.state = "OFF";
+                console.log(
+                    `Grow light: ON → OFF (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
             }
         }
     }
