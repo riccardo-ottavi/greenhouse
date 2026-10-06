@@ -156,11 +156,16 @@ function generateNextValue(sensor, weather) {
 
         case "SOIL_MOISTURE": {
             const pump = getActuatorState(1);
+            const growLight = getActuatorState(3);
 
             if (pump.state === "ON") {
                 sensor.currentValue += randomVariation(0.70, 0.90);
             } else {
                 sensor.currentValue += randomVariation(-0.07, -0.03);
+            }
+
+            if (growLight.state === "ON") {
+                sensor.currentValue -= 0.02;
             }
 
             return clamp(sensor.currentValue, 10, 90);
