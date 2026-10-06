@@ -5,6 +5,7 @@ import deviceRouter from "./routes/deviceRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import deviceApiRouter from "./routes/deviceApiRouter.js";
 import actuatorRouter from "./routes/actuatorRouter.js";
+import { markOfflineDevices } from "./services/deviceService.js";
 
 const app = express();
 
@@ -24,4 +25,15 @@ app.use(errorHandler);
 
 app.listen(3000, () => {
   console.log("Server running on port 3000");
+
+  setInterval(async () => {
+    try {
+      await markOfflineDevices();
+    } catch (error) {
+      console.error(
+        "Device availability check error:",
+        error
+      );
+    }
+  }, 10000);
 });

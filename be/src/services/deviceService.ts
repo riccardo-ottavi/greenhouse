@@ -1,6 +1,8 @@
 import { db } from "../database/connection";
 import { Device } from "../types/Device";
 
+const DEVICE_OFFLINE_THRESHOLD_SECONDS = 30;
+
 export async function getAllDevices(): Promise<Device[]> {
   const [rows] = await db.query(
     `
@@ -83,4 +85,19 @@ export async function updateHeartbeat(
   );
 
   return (result as any).affectedRows > 0;
+}
+
+export async function markOfflineDevices(): Promise<void> {
+  await db.query(
+    `
+      UPDATE devices
+      SET status = 'OFFLINE'
+      WHERE status = 'ONLINE'
+        AND (
+          last_seen IS NULL
+          OR last_seen < CURRENT_TIMESTAMP - INTERVAL ? SECOND
+        )
+    `,
+    [DEVICE_OFFLINE_THRESHOLD_SECONDS]
+  );
 }
