@@ -1,20 +1,26 @@
 import { db } from "../database/connection.js";
-import { DeviceReadingInput, Reading, ReadingInput, ReadingUnit } from "../types/Reading.js";
+import {
+  DeviceReadingInput,
+  Reading,
+  ReadingInput,
+  ReadingUnit
+} from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
 import { AppError } from "../errors/AppError.js";
 
 export async function getAllReadings(): Promise<Reading[]> {
   const [rows] = await db.query(
     `
-          SELECT
-            id,
-            sensor_id as sensorId,
-            value,
-            unit,
-            timestamp
-          FROM readings
-        `
+      SELECT
+        id,
+        sensor_id AS sensorId,
+        value,
+        unit,
+        timestamp
+      FROM readings
+    `
   );
+
   return rows as Reading[];
 }
 
@@ -23,15 +29,15 @@ export async function getReadingById(
 ): Promise<Reading | undefined> {
   const [rows] = await db.query(
     `
-          SELECT
-            id,
-            sensor_id as sensorId,
-            value,
-            unit,
-            timestamp
-          FROM readings
-          WHERE id = ?
-        `,
+      SELECT
+        id,
+        sensor_id AS sensorId,
+        value,
+        unit,
+        timestamp
+      FROM readings
+      WHERE id = ?
+    `,
     [id]
   );
 
@@ -43,7 +49,6 @@ export async function getReadingById(
 export async function createReading(
   reading: ReadingInput
 ): Promise<Reading> {
-
   const [sensorRows] = await db.query(
     `
       SELECT
@@ -66,6 +71,7 @@ export async function createReading(
     throw new AppError("Sensor not found", 404);
   }
 
+  validateReadingInput(reading);
   validateReadingValue(sensor.type, reading.value);
 
   const unit = getUnitFromSensorType(sensor.type);
@@ -74,9 +80,9 @@ export async function createReading(
     `
       INSERT INTO readings
         (sensor_id, value, unit, timestamp)
-    VALUES
-      (?, ?, ?, ?)
-  `,
+      VALUES
+        (?, ?, ?, ?)
+    `,
     [
       reading.sensorId,
       reading.value,
@@ -109,6 +115,74 @@ export async function createReading(
     unit: unit,
     timestamp: new Date(reading.timestamp)
   };
+}
+
+function validateReadingInput(
+  reading: unknown
+): asserts reading is ReadingInput {
+  if (!reading || typeof reading !== "object") {
+    throw new AppError("Invalid reading", 400);
+  }
+
+  const data = reading as Record<string, unknown>;
+
+  if (
+    typeof data.sensorId !== "number" ||
+    !Number.isInteger(data.sensorId)
+  ) {
+    throw new AppError("sensorId must be an integer", 400);
+  }
+
+  if (
+    typeof data.value !== "number" ||
+    !Number.isFinite(data.value)
+  ) {
+    throw new AppError("value must be a finite number", 400);
+  }
+
+  if (
+    data.unit !== "°C" &&
+    data.unit !== "%" &&
+    data.unit !== "lux"
+  ) {
+    throw new AppError("Invalid reading unit", 400);
+  }
+
+  if (
+    typeof data.timestamp !== "string" ||
+    Number.isNaN(new Date(data.timestamp).getTime())
+  ) {
+    throw new AppError("Invalid reading timestamp", 400);
+  }
+}
+
+function validateDeviceReadingInput(
+  input: unknown
+): asserts input is DeviceReadingInput {
+  if (!input || typeof input !== "object") {
+    throw new AppError("Invalid request body", 400);
+  }
+
+  const data = input as Record<string, unknown>;
+
+  if (
+    typeof data.deviceId !== "string" ||
+    data.deviceId.trim().length === 0
+  ) {
+    throw new AppError("deviceId is required", 400);
+  }
+
+  if (!Array.isArray(data.readings)) {
+    throw new AppError("readings must be an array", 400);
+  }
+
+  if (data.readings.length === 0) {
+    throw new AppError("readings must contain at least one reading", 400);
+  }
+
+  for (const reading of data.readings) {
+    validateReadingInput(reading);
+  }
 }
 
 function validateReadingValue(
@@ -155,6 +229,7 @@ function getUnitFromSensorType(type: SensorType): ReadingUnit {
 
     case "LIGHT":
       return "lux";
+
     default:
       throw new Error("Unsupported sensor type");
   }
@@ -165,7 +240,8 @@ export async function getReadingsBySensorId(
 ): Promise<Reading[]> {
   const [sensorRows] = await db.query(
     `
-      SELECT id
+      SELECT
+        id
       FROM sensors
       WHERE id = ?
     `,
@@ -226,6 +302,8 @@ export async function validateSensorBelongsToDevice(
 export async function createDeviceReadings(
   input: DeviceReadingInput
 ): Promise<Reading[]> {
+  validateDeviceReadingInput(input);
+
   const [deviceRows] = await db.query(
     `
       SELECT
@@ -242,7 +320,12 @@ export async function createDeviceReadings(
     throw new AppError("Device not found", 404);
   }
 
-  const createdReadings: Reading[] = [];
+  const validatedReadings: {
+    sensorId: number;
+    value: number;
+    unit: ReadingUnit;
+    timestamp: Date;
+  }[] = [];
 
   for (const reading of input.readings) {
     await validateSensorBelongsToDevice(
@@ -268,9 +351,18 @@ export async function createDeviceReadings(
 
     const sensor = sensors[0];
 
-    validateReadingValue(sensor.type, reading.value);
+    if (!sensor) {
+      throw new AppError("Sensor not found", 404);
+    }
 
-    const expectedUnit = getUnitFromSensorType(sensor.type);
+    validateReadingValue(
+      sensor.type,
+      reading.value
+    );
+
+    const expectedUnit = getUnitFromSensorType(
+      sensor.type
+    );
 
     if (reading.unit !== expectedUnit) {
       throw new AppError(
@@ -279,40 +371,7 @@ export async function createDeviceReadings(
       );
     }
 
-    const [result] = await db.query(
-      `
-        INSERT INTO readings
-          (sensor_id, value, unit, timestamp)
-        VALUES
-          (?, ?, ?, ?)
-      `,
-      [
-        reading.sensorId,
-        reading.value,
-        reading.unit,
-        new Date(reading.timestamp)
-      ]
-    );
-
-    const insertResult = result as { insertId: number };
-
-    await db.query(
-      `
-        UPDATE sensors
-        SET
-          current_value = ?,
-          last_update = ?
-        WHERE id = ?
-      `,
-      [
-        reading.value,
-        new Date(reading.timestamp),
-        reading.sensorId
-      ]
-    );
-
-    createdReadings.push({
-      id: insertResult.insertId,
+    validatedReadings.push({
       sensorId: reading.sensorId,
       value: reading.value,
       unit: reading.unit,
@@ -320,5 +379,64 @@ export async function createDeviceReadings(
     });
   }
 
-  return createdReadings;
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const createdReadings: Reading[] = [];
+
+    for (const reading of validatedReadings) {
+      const [result] = await connection.query(
+        `
+          INSERT INTO readings
+            (sensor_id, value, unit, timestamp)
+          VALUES
+            (?, ?, ?, ?)
+        `,
+        [
+          reading.sensorId,
+          reading.value,
+          reading.unit,
+          reading.timestamp
+        ]
+      );
+
+      const insertResult = result as {
+        insertId: number;
+      };
+
+      await connection.query(
+        `
+          UPDATE sensors
+          SET
+            current_value = ?,
+            last_update = ?
+          WHERE id = ?
+        `,
+        [
+          reading.value,
+          reading.timestamp,
+          reading.sensorId
+        ]
+      );
+
+      createdReadings.push({
+        id: insertResult.insertId,
+        sensorId: reading.sensorId,
+        value: reading.value,
+        unit: reading.unit,
+        timestamp: reading.timestamp
+      });
+    }
+
+    await connection.commit();
+
+    return createdReadings;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }

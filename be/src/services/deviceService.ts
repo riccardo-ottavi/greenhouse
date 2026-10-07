@@ -11,7 +11,6 @@ export async function getAllDevices(): Promise<Device[]> {
         device_id AS deviceId,
         name,
         status,
-        api_key_hash AS apiKeyHash,
         last_seen AS lastSeen,
         created_at AS createdAt
       FROM devices
@@ -56,7 +55,6 @@ export async function getDeviceById(
         device_id AS deviceId,
         name,
         status,
-        api_key_hash AS apiKeyHash,
         last_seen AS lastSeen,
         created_at AS createdAt
       FROM devices

@@ -194,6 +194,38 @@ export async function createCommand(
     );
   }
 
+  if (
+    type !== "SET_ACTUATOR_STATE" &&
+    type !== "SET_CONTROL_MODE"
+  ) {
+    throw new AppError(
+      "Invalid command type",
+      400
+    );
+  }
+
+  if (
+    state !== null &&
+    state !== "ON" &&
+    state !== "OFF"
+  ) {
+    throw new AppError(
+      "Invalid actuator state",
+      400
+    );
+  }
+
+  if (
+    controlMode !== null &&
+    controlMode !== "AUTO" &&
+    controlMode !== "MANUAL"
+  ) {
+    throw new AppError(
+      "Invalid control mode",
+      400
+    );
+  }
+
   if (type === "SET_ACTUATOR_STATE") {
     if (state === null || controlMode !== null) {
       throw new AppError(
