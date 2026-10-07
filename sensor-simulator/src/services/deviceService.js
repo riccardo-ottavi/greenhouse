@@ -64,7 +64,7 @@ export async function processPendingCommands() {
   const commands = await getPendingCommands();
 
   for (const command of commands) {
-    const result = executeCommand(command);
+    const result = await executeCommand(command);
 
     await sendCommandResult(
       command.id,
