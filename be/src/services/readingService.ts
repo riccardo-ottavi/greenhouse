@@ -5,7 +5,7 @@ import {
   ReadingInput,
   ReadingUnit
 } from "../types/Reading.js";
-import { getUnitFromSensorType, validateDeviceReadingInput, validateReadingInput, validateReadingValue } from "./redingValidationService.js";
+import { getUnitFromSensorType, validateDeviceReadingInput, validateReadingInput, validateReadingValue } from "./readingValidationService.js";
 import { SensorType } from "../types/Sensor.js";
 import { AppError } from "../errors/AppError.js";
 import { getEnvironmentalAlert } from "./environmentalAlertService.js";
