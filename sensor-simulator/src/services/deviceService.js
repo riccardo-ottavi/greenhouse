@@ -4,9 +4,23 @@ import { executeCommand } from "./commandService.js";
 const BACKEND_URL = "http://localhost:3000";
 const DEVICE_ID = "GREENHOUSE_001";
 
+const API_KEY = process.env.DEVICE_API_KEY;
+
+if (!API_KEY) {
+    throw new Error("DEVICE_API_KEY is not configured");
+}
+
+export const DEVICE_HEADERS = {
+    "Content-Type": "application/json",
+    "X-API-Key": API_KEY
+};
+
 export async function getPendingCommands() {
   const response = await fetch(
-    `${BACKEND_URL}/api/device/commands?deviceId=${DEVICE_ID}`
+    `${BACKEND_URL}/api/device/commands?deviceId=${DEVICE_ID}`,
+    {
+        headers: DEVICE_HEADERS
+    }
   );
 
   if (!response.ok) {
@@ -28,9 +42,7 @@ export async function sendCommandResult(
     `${BACKEND_URL}/api/device/command-results`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: DEVICE_HEADERS,
       body: JSON.stringify({
         commandId,
         deviceId: DEVICE_ID,
@@ -63,7 +75,10 @@ export async function processPendingCommands() {
 
 export async function initializeDeviceState() {
     const response = await fetch(
-        `${BACKEND_URL}/api/device/config?deviceId=${DEVICE_ID}`
+        `${BACKEND_URL}/api/device/config?deviceId=${DEVICE_ID}`,
+        {
+        headers: DEVICE_HEADERS
+    }
     );
 
     if (!response.ok) {
@@ -113,9 +128,7 @@ export async function sendDeviceStatus() {
     `${BACKEND_URL}/api/device/status`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: DEVICE_HEADERS,
       body: JSON.stringify({
         deviceId: DEVICE_ID,
         actuators: Object.entries(deviceState.actuators).map(
@@ -169,9 +182,7 @@ export async function sendHeartbeat() {
     `${BACKEND_URL}/api/device/heartbeat`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: DEVICE_HEADERS,
       body: JSON.stringify({
         deviceId: DEVICE_ID
       })
