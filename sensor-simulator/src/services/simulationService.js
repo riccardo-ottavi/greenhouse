@@ -1,4 +1,4 @@
-import { getActuatorState, sendDeviceStatus } from "./deviceService.js";
+import { getActuatorState, sendDeviceStatus, DEVICE_HEADERS } from "./deviceService.js";
 import { getOutsideWeather } from "./weatherService.js";
 import simulationConfig from "../config/simulationConfig.js";
 
@@ -306,9 +306,7 @@ async function sendReading(sensor, value) {
         "http://localhost:3000/api/device/readings",
         {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: DEVICE_HEADERS,
             body: JSON.stringify({
                 deviceId: "GREENHOUSE_001",
                 readings: [
