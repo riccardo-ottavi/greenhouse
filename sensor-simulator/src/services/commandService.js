@@ -1,14 +1,29 @@
 import deviceState from "../state/deviceState.js";
+import {
+    hasProcessedCommand,
+    getProcessedCommand,
+    saveProcessedCommand
+} from "./commandJournal.js";
 
-export function executeCommand(command) {
-    if (deviceState.executedCommands.includes(command.id)) {
+export async function executeCommand(command) {
+    const alreadyProcessed = await hasProcessedCommand(command.id);
+
+    if (alreadyProcessed) {
+        const previousResult =
+            await getProcessedCommand(command.id);
+
+        console.log(
+            `DEBUG - Command ${command.id} already processed. Skipping execution.`
+        );
+
         return {
-            success: true,
+            success: previousResult.success,
             alreadyExecuted: true
         };
     }
 
-    const actuator = deviceState.actuators[command.actuatorId];
+    const actuator =
+        deviceState.actuators[command.actuatorId];
 
     if (!actuator) {
         return {
@@ -36,10 +51,12 @@ export function executeCommand(command) {
         };
     }
 
-    deviceState.executedCommands.push(command.id);
-
-    return {
+    const result = {
         success: true,
         alreadyExecuted: false
     };
+
+    await saveProcessedCommand(command.id, result);
+
+    return result;
 }
