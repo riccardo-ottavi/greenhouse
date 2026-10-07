@@ -29,7 +29,7 @@ export async function runSimulation() {
     const weather = await getOutsideWeather();
 
     sensors.forEach((sensor) => {
-        generateNextValue(sensor, weather);
+        sensor.currentValue = generateNextValue(sensor, weather);
     });
 
     applyAutomaticRules();
