@@ -320,7 +320,12 @@ export async function createDeviceReadings(
     throw new AppError("Device not found", 404);
   }
 
-  const createdReadings: Reading[] = [];
+  const validatedReadings: {
+    sensorId: number;
+    value: number;
+    unit: ReadingUnit;
+    timestamp: Date;
+  }[] = [];
 
   for (const reading of input.readings) {
     await validateSensorBelongsToDevice(
@@ -346,6 +351,10 @@ export async function createDeviceReadings(
 
     const sensor = sensors[0];
 
+    if (!sensor) {
+      throw new AppError("Sensor not found", 404);
+    }
+
     validateReadingValue(
       sensor.type,
       reading.value
@@ -362,50 +371,72 @@ export async function createDeviceReadings(
       );
     }
 
-    const timestamp = new Date(reading.timestamp);
-
-    const [result] = await db.query(
-      `
-        INSERT INTO readings
-          (sensor_id, value, unit, timestamp)
-        VALUES
-          (?, ?, ?, ?)
-      `,
-      [
-        reading.sensorId,
-        reading.value,
-        reading.unit,
-        timestamp
-      ]
-    );
-
-    const insertResult = result as {
-      insertId: number;
-    };
-
-    await db.query(
-      `
-        UPDATE sensors
-        SET
-          current_value = ?,
-          last_update = ?
-        WHERE id = ?
-      `,
-      [
-        reading.value,
-        timestamp,
-        reading.sensorId
-      ]
-    );
-
-    createdReadings.push({
-      id: insertResult.insertId,
+    validatedReadings.push({
       sensorId: reading.sensorId,
       value: reading.value,
       unit: reading.unit,
-      timestamp
+      timestamp: new Date(reading.timestamp)
     });
   }
 
-  return createdReadings;
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const createdReadings: Reading[] = [];
+
+    for (const reading of validatedReadings) {
+      const [result] = await connection.query(
+        `
+          INSERT INTO readings
+            (sensor_id, value, unit, timestamp)
+          VALUES
+            (?, ?, ?, ?)
+        `,
+        [
+          reading.sensorId,
+          reading.value,
+          reading.unit,
+          reading.timestamp
+        ]
+      );
+
+      const insertResult = result as {
+        insertId: number;
+      };
+
+      await connection.query(
+        `
+          UPDATE sensors
+          SET
+            current_value = ?,
+            last_update = ?
+          WHERE id = ?
+        `,
+        [
+          reading.value,
+          reading.timestamp,
+          reading.sensorId
+        ]
+      );
+
+      createdReadings.push({
+        id: insertResult.insertId,
+        sensorId: reading.sensorId,
+        value: reading.value,
+        unit: reading.unit,
+        timestamp: reading.timestamp
+      });
+    }
+
+    await connection.commit();
+
+    return createdReadings;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
