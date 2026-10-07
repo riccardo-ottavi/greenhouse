@@ -7,6 +7,7 @@ import {
 } from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
 import { AppError } from "../errors/AppError.js";
+import { getEnvironmentalAlert } from "./environmentalAlertService.js";
 
 export async function getAllReadings(): Promise<Reading[]> {
   const [rows] = await db.query(
@@ -368,6 +369,17 @@ export async function createDeviceReadings(
       throw new AppError(
         `Invalid unit for sensor ${reading.sensorId}`,
         400
+      );
+    }
+
+    const alert = getEnvironmentalAlert(
+      sensor.type,
+      reading.value
+    );
+
+    if (alert) {
+      console.log(
+        `Environmental alert: ${alert} (sensor ${reading.sensorId}, value: ${reading.value}${reading.unit})`
       );
     }
 

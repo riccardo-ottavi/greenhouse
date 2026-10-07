@@ -7,7 +7,6 @@ export type SensorType =
 export type SensorStatus =
   | "ONLINE"
   | "OFFLINE"
-  | "WARNING"
   | "ERROR";
 
 export type Sensor = {
