@@ -152,23 +152,27 @@ The simulator stores its API key in an environment variable loaded through `dote
 
 The device API requires valid authentication for communication between the simulator and backend.
 
----
+### 9. Restart-Safe Command Idempotency
 
-### 9. Command Idempotency
-
-**Goal:** verify that the same command cannot be executed more than once.
+**Goal:** verify that the same command cannot be executed more than once, including after a device restart.
 
 **Tested behavior:**
 
-* A command is executed by the simulator.
-* The backend records the command as `EXECUTED`.
-* Repeated command-result processing does not execute the same command again.
+* Create a valid persistent command.
+* Verify that the command starts with `PENDING` status.
+* Simulator executes the command and stores its command ID in the persistent command journal.
+* Simulate a failure before the command result is sent to the backend.
+* Verify that the backend still considers the command `PENDING`.
+* Restart the simulator.
+* Verify that the simulator receives the same pending command again.
+* Verify that the persistent command journal detects the command as already processed.
+* Verify that the actuator command is not executed a second time.
+* Simulator sends the previously stored successful result to the backend.
+* Backend changes the command status to `EXECUTED`.
 
 **Result:** PASS
 
-The command lifecycle is protected against duplicate execution.
-
----
+The simulator uses a persistent command journal to maintain command processing state across restarts. A command that was successfully executed before a device restart is therefore not executed again when the backend redelivers it.
 
 ### 10. Transactional Reading Persistence
 
@@ -219,7 +223,7 @@ The backend correctly handles failed command execution and records the failure w
 | Grow light automatic control           | PASS   |
 | Water pump automatic control           | PASS   |
 | Device status synchronization          | PASS   |
-| Command idempotency                    | PASS   |
+| Restart-safe command idempotency       | PASS   |
 | Reading transaction atomicity          | PASS   |
 | Device API authentication              | PASS   |
 | Failed command handling                | PASS   |
