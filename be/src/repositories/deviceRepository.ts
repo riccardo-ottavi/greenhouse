@@ -106,3 +106,23 @@ export async function markOfflineDevices(
     [thresholdSeconds]
   );
 }
+
+export async function getDeviceApiKeyHash(
+  deviceId: string
+): Promise<string | undefined> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        api_key_hash AS apiKeyHash
+      FROM devices
+      WHERE device_id = ?
+    `,
+    [deviceId]
+  );
+
+  const devices = rows as {
+    apiKeyHash: string;
+  }[];
+
+  return devices[0]?.apiKeyHash;
+}
