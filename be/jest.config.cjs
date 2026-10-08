@@ -13,5 +13,11 @@ module.exports = {
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
 
-  clearMocks: true
+  setupFiles: ["<rootDir>/tests/setup.ts"],
+
+  setupFilesAfterEnv: ["<rootDir>/tests/setupAfter.ts"],
+
+  clearMocks: true,
+
+  maxWorkers: 1
 };
