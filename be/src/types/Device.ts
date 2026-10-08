@@ -11,3 +11,5 @@ export type Device = {
     lastSeen: Date | null;
     createdAt: Date;
 };
+
+export type DeviceView = Omit<Device, "apiKeyHash">;

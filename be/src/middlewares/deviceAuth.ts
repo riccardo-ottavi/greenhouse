@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
-import { db } from "../database/connection.js";
+import {
+  getDeviceApiKeyHash
+} from "../repositories/deviceRepository.js";
 
 export async function deviceAuth(
   req: Request,
@@ -10,7 +12,9 @@ export async function deviceAuth(
 ): Promise<void> {
   try {
     const apiKey = req.header("X-API-Key");
-    const deviceId = req.body?.deviceId ?? req.query.deviceId;
+    const deviceId =
+      req.body?.deviceId ??
+      req.query.deviceId;
 
     if (!apiKey || !deviceId) {
       res.status(401).json({
@@ -19,37 +23,35 @@ export async function deviceAuth(
       return;
     }
 
-    const [rows] = await db.query(
-      `
-        SELECT api_key_hash AS apiKeyHash
-        FROM devices
-        WHERE device_id = ?
-      `,
-      [deviceId]
-    );
+    const apiKeyHash =
+      await getDeviceApiKeyHash(
+        deviceId
+      );
 
-    const devices = rows as {
-      apiKeyHash: string;
-    }[];
-
-    const device = devices[0];
-
-    if (!device) {
+    if (!apiKeyHash) {
       res.status(401).json({
         message: "Invalid authentication credentials"
       });
       return;
     }
 
-    const apiKeyHash = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
+    const providedApiKeyHash =
+      crypto
+        .createHash("sha256")
+        .update(apiKey)
+        .digest("hex");
 
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(apiKeyHash, "hex"),
-      Buffer.from(device.apiKeyHash, "hex")
-    );
+    const isValid =
+      crypto.timingSafeEqual(
+        Buffer.from(
+          providedApiKeyHash,
+          "hex"
+        ),
+        Buffer.from(
+          apiKeyHash,
+          "hex"
+        )
+      );
 
     if (!isValid) {
       res.status(401).json({
@@ -63,3 +65,4 @@ export async function deviceAuth(
     next(error);
   }
 }
+
