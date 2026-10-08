@@ -1,53 +1,8 @@
-import { db } from "../database/connection.js";
+import { getAllSensors, getSensorById } from "../repositories/sensorRepository.js";
 import { Sensor } from "../types/Sensor.js";
 import { SensorView } from "../types/SensorView.js";
 import { getEnvironmentalAlert } from "./environmentalAlertService.js";
 
-export async function getAllSensors(): Promise<Sensor[]> {
-  const [rows] = await db.query(
-    `
-      SELECT
-        id,
-        device_id AS deviceId,
-        name,
-        type,
-        status,
-        sampling_interval AS samplingInterval,
-        current_value AS currentValue,
-        last_update AS lastUpdate,
-        zone_id AS zoneId
-      FROM sensors
-    `
-  );
-
-  return rows as Sensor[];
-}
-
-export async function getSensorById(
-  id: number
-): Promise<Sensor> {
-  const [rows] = await db.query(
-    `
-      SELECT
-        id,
-        device_id AS deviceId,
-        name,
-        type,
-        status,
-        sampling_interval AS samplingInterval,
-        current_value AS currentValue,
-        last_update AS lastUpdate,
-        zone_id AS zoneId
-      FROM sensors
-      WHERE id = ?
-    `,
-    [id]
-  );
-
-  const sensors = rows as Sensor[];
-
-  return sensors[0];
-}
 
 function toSensorView(sensor: Sensor): SensorView {
   return {
@@ -67,8 +22,12 @@ export async function getAllSensorViews(): Promise<SensorView[]> {
 
 export async function getSensorViewById(
   id: number
-): Promise<SensorView> {
+): Promise<SensorView | undefined> {
   const sensor = await getSensorById(id);
+
+  if (!sensor) {
+    return undefined;
+  }
 
   return toSensorView(sensor);
 }
