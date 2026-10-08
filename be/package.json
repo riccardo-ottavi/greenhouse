@@ -7,16 +7,23 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "dev": "tsx src/server.ts"
   },
   "dependencies": {
+    "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "mysql2": "^3.24.4"
   },
   "devDependencies": {
+    "@swc/core": "^1.16.13",
+    "@swc/jest": "^0.2.39",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.20.3",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.5.2",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }
