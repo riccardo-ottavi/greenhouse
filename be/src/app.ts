@@ -1,11 +1,12 @@
 import express from "express";
+
 import sensorRouter from "./routes/sensorRouter.js";
 import readingRouter from "./routes/readingRouter.js";
 import deviceRouter from "./routes/deviceRouter.js";
-import { errorHandler } from "./middlewares/errorHandler.js";
 import deviceApiRouter from "./routes/deviceApiRouter.js";
 import actuatorRouter from "./routes/actuatorRouter.js";
-import { markOfflineDevices } from "./services/deviceService.js";
+
+import { errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
 
@@ -23,17 +24,4 @@ app.get("/", (_req, res) => {
 
 app.use(errorHandler);
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
-
-  setInterval(async () => {
-    try {
-      await markOfflineDevices();
-    } catch (error) {
-      console.error(
-        "Device availability check error:",
-        error
-      );
-    }
-  }, 10000);
-});
+export default app;
