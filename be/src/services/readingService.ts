@@ -64,9 +64,13 @@ export async function createReading(
     reading.value
   );
 
-  const unit = getUnitFromSensorType(
-    sensor.type
-  );
+  const expectedUnit = getUnitFromSensorType(sensor.type);
+
+  if (reading.unit !== expectedUnit) {
+    throw new AppError("Unit does not match sensor type", 400);
+  }
+
+  const unit = expectedUnit;
 
   const timestamp = new Date(
     reading.timestamp
