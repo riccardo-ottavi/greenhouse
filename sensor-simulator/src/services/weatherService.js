@@ -60,12 +60,19 @@ export async function getOutsideWeather() {
 
         cachedAt = Date.now();
 
+        console.log("Weather source: Open-Meteo API", cachedWeather);
+
         return cachedWeather;
     } catch (error) {
         console.error(
             "Weather API error, using local fallback:",
             error.message
         );
+
+        console.log("Weather source: LOCAL FALLBACK", {
+            temperature: fallbackWeather.temperature,
+            humidity: fallbackWeather.humidity
+        });
 
         return getFallbackWeather();
     }
