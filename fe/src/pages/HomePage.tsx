@@ -1,10 +1,11 @@
+import DeviceCard from "../components/DeviceCard";
+
 export default function HomePage(){
     return(
-        <>
-            <div className="homepage">
-                <h1>Greenhouse Monitoring System HOMEPAGE</h1>
-            </div>
-        </>
+        <div className="homepage page">
+            <h1>Devices List</h1>
+            <DeviceCard />
+        </div>
         
     )
 }

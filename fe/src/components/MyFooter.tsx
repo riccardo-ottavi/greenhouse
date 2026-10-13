@@ -1,6 +1,6 @@
 export default function MyFooter(){
     return(
-        <footer>
+        <footer className="page">
             <span>Sono il footer</span>
         </footer>
     )

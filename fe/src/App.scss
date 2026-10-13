@@ -1,5 +1,238 @@
-$primary-color: #2e7d32;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+$font-primary: 'Inter', sans-serif;
+$color-bg-primary: #F4F7F9;
+$color-surface-primary: #fff;
+$color-text-primary: black;
+$color-highlight-element: #156A41;
+$color-secondary-text:rgb(160, 153, 153);
+
+$padding-md: 25px;
+$padding-sm: 15px;
+
+$border-radius: 8px;
 
 * {
-    color: $primary-color;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: $color-bg-primary;
+    font-family: $font-primary;
+}
+
+h2 {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+header {
+    height: 60px;
+    width: 100%;
+}
+
+footer {
+    height: 130px;
+    width: 100%;
+    z-index: 999;
+}
+
+.align-row {
+    display: flex;
+    align-items: center;
+}
+
+.page {
+    margin-left: 220px;
+}
+
+.site-logo{
+    display: flex;
+    margin: $padding-md;
+
+    img {
+        height: 40px;
+        width: 40px;
+    }
+
+    .site-logo-text{
+        display: flex;
+        flex-direction: column;
+    }
+
+    h3{
+        color: $color-highlight-element;
+    }
+
+    span{
+        color: $color-secondary-text;
+    }
+}
+
+.sidebar-container {
+    width: 220px;
+    height: 100%;
+    position: absolute;
+    z-index: 500;
+    margin-left: $padding-md;
+
+    ul{
+        list-style: none;
+    }
+
+}
+
+.homepage{
+
+    .device-card{
+        background-color: $color-surface-primary;
+        height: 80px;
+        width: 800px;
+        display: flex;
+        align-items: center;
+        gap: $padding-md;
+        padding: $padding-md;
+    }
+}
+
+.device-homepage-container {
+    display: flex;
+    flex-direction: column;
+    gap: $padding-sm;
+
+    .hero-container {
+        background-image:
+            linear-gradient(to right, rgba(0, 0, 0, 0.95), transparent),
+            url("./assets/hero.jpg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        height: 320px;
+        width: 100%;
+        display: flex;
+        position: relative;
+        padding: $padding-md;
+
+        * {
+            color: white;
+        }
+
+        .external-weather-overview-container {
+            background-color: $color-surface-primary;
+            height: 200px;
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            right: $padding-md;
+            bottom: $padding-md;
+
+            border-radius: $border-radius;
+            padding: $padding-md;
+
+            * {
+                color: $color-text-primary;
+            }
+
+            .br {
+                height: 1px;
+                width: 95%;
+                background-color: rgba(94, 77, 77, 0.315);
+                flex-shrink: 0;
+            }
+
+            img {
+                height: 25px;
+                width: 25px;
+                margin-right: 5px;
+            }
+
+            .conditions-row {
+                display: flex;
+                align-items: center;
+                height: 50px;
+                margin-bottom: 8px;
+            }
+
+            .conditions-last-update {
+                margin-top: $padding-sm;
+            }
+
+            .conditions-row-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+
+                h3 {
+                    margin: 0;
+                }
+            }
+        }
+
+        .hero-text {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 500px;
+
+            button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                margin-top: $padding-md;
+                font-weight: 550;
+            }
+
+            img {
+                height: 20px;
+                width: 20px;
+            }
+        }
+
+        span {
+            font-size: 12px;
+        }
+
+        button {
+            width: 150px;
+            height: 40px;
+            background-color: $color-highlight-element;
+            border-radius: $border-radius;
+        }
+    }
+
+    .sensors-overview{
+        height: 320px;
+        background-color: $color-surface-primary;
+        display: flex;
+        flex-direction: column;
+
+        .sensors-overview-header{
+            display: flex;
+        }
+
+        img{
+            height: 35px;
+            height: 35px;
+        }
+
+        .sensors-overview-text{
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sensors-overview-row{
+            display: flex;
+            gap: 10px;
+            height: 300px;
+        }
+
+        .sensor-overview-card{
+            width: calc(100% / 4 );
+            border: 1px solid black;
+        }
+    }
 }

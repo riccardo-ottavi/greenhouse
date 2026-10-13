@@ -2,6 +2,7 @@
 import './App.scss'
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import DefaultLayout from './layouts/DefaultLayout';
+import DeviceHomePage from './pages/DeviceHomePage';
 import HomePage from './pages/HomePage';
 
 function App() {
