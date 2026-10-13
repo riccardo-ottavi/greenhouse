@@ -52,6 +52,26 @@ describe("Devices API", () => {
             "apiKeyHash"
         );
     });
+
+    it("GET /api/devices/:id/sensors should return the device's sensors", async () => {
+        const listResponse = await request(app)
+            .get("/api/devices");
+
+        const device = listResponse.body[0];
+
+        const response = await request(app)
+            .get(`/api/devices/${device.id}/sensors`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(4);
+        expect(response.body[0]).toMatchObject({
+            deviceId: device.id,
+            name: "Test Temperature",
+            type: "TEMPERATURE",
+            currentValue: 22
+        });
+    });
+
     it("POST /api/device/heartbeat should mark the device as online", async () => {
         const response = await request(app)
             .post("/api/device/heartbeat")

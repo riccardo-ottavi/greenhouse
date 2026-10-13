@@ -1,4 +1,3 @@
-
 import './App.scss'
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import DefaultLayout from './layouts/DefaultLayout';
@@ -11,6 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<DefaultLayout />}>
           <Route index element={<HomePage />} />
+          <Route path="devices/:id" element={<DeviceHomePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

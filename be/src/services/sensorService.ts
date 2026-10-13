@@ -1,4 +1,4 @@
-import { getAllSensors, getSensorById } from "../repositories/sensorRepository.js";
+import { getAllSensors, getSensorById, getSensorsByDeviceId } from "../repositories/sensorRepository.js";
 import { Sensor } from "../types/Sensor.js";
 import { SensorView } from "../types/SensorView.js";
 import { getEnvironmentalAlert } from "./environmentalAlertService.js";
@@ -30,4 +30,12 @@ export async function getSensorViewById(
   }
 
   return toSensorView(sensor);
+}
+
+export async function getSensorViewsByDeviceId(
+  deviceId: number
+): Promise<SensorView[]> {
+  const sensors = await getSensorsByDeviceId(deviceId);
+
+  return sensors.map(toSensorView);
 }
