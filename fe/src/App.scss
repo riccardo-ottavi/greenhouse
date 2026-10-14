@@ -5,7 +5,7 @@ $color-bg-primary: #F4F7F9;
 $color-surface-primary: #fff;
 $color-text-primary: black;
 $color-highlight-element: #156A41;
-$color-secondary-text:rgb(160, 153, 153);
+$color-secondary-text: rgb(160, 153, 153);
 
 $padding-md: 25px;
 $padding-sm: 15px;
@@ -46,9 +46,10 @@ footer {
 
 .page {
     margin-left: 220px;
+    width: calc(100% - 220px);
 }
 
-.site-logo{
+.site-logo {
     display: flex;
     margin: $padding-md;
 
@@ -57,16 +58,16 @@ footer {
         width: 40px;
     }
 
-    .site-logo-text{
+    .site-logo-text {
         display: flex;
         flex-direction: column;
     }
 
-    h3{
+    h3 {
         color: $color-highlight-element;
     }
 
-    span{
+    span {
         color: $color-secondary-text;
     }
 }
@@ -78,15 +79,15 @@ footer {
     z-index: 500;
     margin-left: $padding-md;
 
-    ul{
+    ul {
         list-style: none;
     }
 
 }
 
-.homepage{
+.homepage {
 
-    .device-card{
+    .device-card {
         background-color: $color-surface-primary;
         height: 80px;
         width: 800px;
@@ -204,35 +205,243 @@ footer {
         }
     }
 
-    .sensors-overview{
+    .sensors-overview {
         height: 320px;
         background-color: $color-surface-primary;
         display: flex;
         flex-direction: column;
 
-        .sensors-overview-header{
+        .sensors-overview-header {
             display: flex;
         }
 
-        img{
+        img {
             height: 35px;
             height: 35px;
         }
 
-        .sensors-overview-text{
+        .sensors-overview-text {
             display: flex;
             flex-direction: column;
         }
-        
-        .sensors-overview-row{
+
+        .sensors-overview-row {
             display: flex;
+            align-items: stretch;
             gap: 10px;
-            height: 300px;
+            flex: 1;
+            min-height: 0;
+            padding: $padding-sm $padding-md $padding-md;
+            overflow-x: auto;
         }
 
-        .sensor-overview-card{
-            width: calc(100% / 4 );
-            border: 1px solid black;
+        .sensor-overview-card {
+            display: flex;
+            flex: 1 0 180px;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 14px;
+            min-width: 0;
+            padding: $padding-sm;
+            border: 1px solid $color-bg-primary;
+            border-radius: $border-radius;
+        }
+
+        .sensor-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+
+            img {
+                width: 28px;
+                height: 28px;
+                object-fit: contain;
+            }
+        }
+
+        .sensor-status {
+            padding: 4px 7px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .sensor-status-online {
+            background-color: #e7f4ec;
+            color: $color-highlight-element;
+        }
+
+        .sensor-status-offline {
+            background-color: #f0f0f0;
+            color: $color-secondary-text;
+        }
+
+        .sensor-status-error {
+            background-color: #fde9e9;
+            color: #b42318;
+        }
+
+        .sensor-card-reading {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+
+            .sensor-card-type {
+                color: $color-secondary-text;
+                font-size: 10px;
+                text-transform: capitalize;
+            }
+
+            strong {
+                font-size: 24px;
+
+                span {
+                    margin-left: 3px;
+                    color: $color-secondary-text;
+                    font-size: 12px;
+                    font-weight: 400;
+                }
+            }
+
+            h4 {
+                overflow: hidden;
+                font-size: 12px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+        }
+
+        .sensor-card-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            color: $color-secondary-text;
+            font-size: 10px;
         }
     }
+
+    .dashboard-bottom{
+        display: flex;
+        gap: 24px;
+        width: 100%;
+    }
+
+    .trend-history {
+        height: 350px;
+        width: 55%;
+        background-color: $color-surface-primary;
+    }
+
+    .actuators-overview{
+        height: 350px;
+        width: 45%;
+        background-color: $color-surface-primary;
+        padding: $padding-md;
+        min-width: 0;
+    }
+
+    .actuators-overview-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        gap: $padding-sm;
+    }
+
+    .actuators-overview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        span {
+            color: $color-secondary-text;
+            font-size: 12px;
+        }
+
+        .actuator-count {
+            display: grid;
+            place-items: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: $color-bg-primary;
+            color: $color-text-primary;
+            font-size: 14px;
+        }
+    }
+
+    .actuator-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        list-style: none;
+        overflow-y: auto;
+    }
+
+    .actuator-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 58px;
+        padding: 8px 10px;
+        border: 1px solid $color-bg-primary;
+        border-radius: $border-radius;
+    }
+
+    .actuator-icon {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+    }
+
+    .actuator-info,
+    .actuator-status {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .actuator-info {
+        min-width: 0;
+        flex: 1;
+
+        strong {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        span,
+        strong {
+            font-size: 12px;
+        }
+
+        span {
+            color: $color-secondary-text;
+        }
+    }
+
+    .actuator-status {
+        align-items: flex-end;
+        font-size: 11px;
+
+        .actuator-state {
+            font-weight: 600;
+        }
+
+        .actuator-state-on {
+            color: $color-highlight-element;
+        }
+
+        .actuator-state-off {
+            color: $color-secondary-text;
+        }
+    }
+
+    .actuator-empty {
+        color: $color-secondary-text;
+        font-size: 14px;
+    }
+
 }
