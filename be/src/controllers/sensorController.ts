@@ -1,6 +1,8 @@
+import { getDeviceById } from "../repositories/deviceRepository.js";
 import {
     getAllSensorViews,
-    getSensorViewById
+    getSensorViewById,
+    getSensorViewsByDeviceId
 } from "../services/sensorService.js";
 import { Request, Response } from "express";
 

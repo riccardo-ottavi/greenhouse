@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 
 import sensorRouter from "./routes/sensorRouter.js";
 import readingRouter from "./routes/readingRouter.js";
@@ -9,6 +10,10 @@ import actuatorRouter from "./routes/actuatorRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
+
+app.use(cors({
+  origin: "http://localhost:5173",
+}));
 
 app.use(express.json());
 

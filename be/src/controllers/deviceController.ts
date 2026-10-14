@@ -1,6 +1,7 @@
 import { updateActuatorStatus } from "../services/actuatorService";
 import { getAllDevices, getDeviceActuatorStates, getDeviceById, updateHeartbeat } from "../services/deviceService";
 import { Request, Response } from "express";
+import { getSensorViewsByDeviceId } from "../services/sensorService";
 
 export async function index(req: Request, res: Response) {
     try {
@@ -153,4 +154,39 @@ export async function getConfig(req: Request, res: Response): Promise<void> {
             message: "Couldn't get device configuration"
         });
     }
+}
+
+export async function getDeviceSensors(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({
+        message: "Device id must be a positive integer"
+      });
+      return;
+    }
+
+    const device = await getDeviceById(id);
+
+    if (!device) {
+      res.status(404).json({
+        message: "Device not found"
+      });
+      return;
+    }
+
+    const sensors = await getSensorViewsByDeviceId(id);
+
+    res.json(sensors);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Couldn't get device sensors"
+    });
+  }
 }

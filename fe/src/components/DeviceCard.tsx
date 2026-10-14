@@ -1,9 +1,11 @@
-export default function DeviceCard(){
+import type { Device } from "../types/Device";
+
+export default function DeviceCard(device: Device){
     return(
         <div className="device-card">
-            <span>Greenhouse 1</span>
-            <span>online</span>
-            <span>last update: 13/10 17:42</span>
+            <span>{device.name}</span>
+            <span>{device.status}</span>
+            <span>{device.lastSeen}</span>
         </div>
     )
 }

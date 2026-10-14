@@ -81,3 +81,26 @@ export async function updateActuatorStatus(
 
   return updateResult.affectedRows > 0;
 }
+
+export async function getActuatorsByDeviceId(
+  deviceId: number
+): Promise<Actuator[]> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        id,
+        device_id AS deviceId,
+        name,
+        type,
+        state,
+        control_mode AS controlMode,
+        last_update AS lastUpdate
+      FROM actuators
+      WHERE device_id = ?
+      ORDER BY id ASC
+    `,
+    [deviceId]
+  );
+
+  return rows as Actuator[];
+}

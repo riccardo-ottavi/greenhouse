@@ -46,3 +46,28 @@ export async function getSensorById(
 
   return sensors[0];
 }
+
+export async function getSensorsByDeviceId(
+  deviceId: number
+): Promise<Sensor[]> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        id,
+        device_id AS deviceId,
+        name,
+        type,
+        status,
+        sampling_interval AS samplingInterval,
+        current_value AS currentValue,
+        last_update AS lastUpdate,
+        zone_id AS zoneId
+      FROM sensors
+      WHERE device_id = ?
+      ORDER BY id ASC
+    `,
+    [deviceId]
+  );
+
+  return rows as Sensor[];
+}
