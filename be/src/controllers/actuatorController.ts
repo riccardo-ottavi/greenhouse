@@ -2,9 +2,11 @@ import { Request, Response } from "express";
 import { AppError } from "../errors/AppError.js";
 import {
   getAllActuators,
-  getActuatorById
+  getActuatorById,
+  getActuatorsByDeviceId
 } from "../services/actuatorService.js";
 import { createCommand } from "../services/commandService.js";
+import { getDeviceById } from "../repositories/deviceRepository.js";
 
 export async function index(
   _req: Request,
@@ -67,4 +69,31 @@ export async function command(
   );
 
   res.status(201).json(command);
+}
+
+export async function getDeviceActuators(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError(
+      "Device id must be a positive integer",
+      400
+    );
+  }
+
+  const device = await getDeviceById(id);
+
+  if (!device) {
+    throw new AppError(
+      "Device not found",
+      404
+    );
+  }
+
+  const actuators = await getActuatorsByDeviceId(id);
+
+  res.json(actuators);
 }

@@ -9,7 +9,8 @@ import {
 import {
   getAllActuators as findAllActuators,
   getActuatorById as findActuatorById,
-  updateActuatorStatus as updateActuator
+  updateActuatorStatus as updateActuator,
+  getActuatorsByDeviceId as findActuatorsByDeviceId,
 } from "../repositories/actuatorRepository.js";
 
 export async function getAllActuators(): Promise<Actuator[]> {
@@ -41,4 +42,10 @@ export async function updateActuatorStatus(
       404
     );
   }
+}
+
+export async function getActuatorsByDeviceId(
+  deviceId: number
+): Promise<Actuator[]> {
+  return findActuatorsByDeviceId(deviceId);
 }
