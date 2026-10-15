@@ -8,6 +8,7 @@ import { getSensorsByDevice } from "../api/sensor";
 import ActuatorsOverview from "../components/ActuatorsOverview";
 import type { Actuator } from "../types/Actuator";
 import { getActuatorsByDevice } from "../api/actuator";
+import TrendOverview from "../components/TrendOverview";
 
 export default function DeviceHomePage() {
 
@@ -73,15 +74,14 @@ export default function DeviceHomePage() {
 
 
                 </div>
-                    <div className="dashboard-bottom">
-                        <div className="trend-history">
+                <div className="dashboard-bottom">
+                    <div className="trend-history">
+                        <TrendOverview sensors={sensors} />
+                    </div>
 
-                        </div>
-                        <div className="actuators-overview">
-                            <ActuatorsOverview
-                                actuators={actuators}
-                            />
-                        </div>
+                    <div className="actuators-overview">
+                        <ActuatorsOverview actuators={actuators} />
+                    </div>
                 </div>
             </div>
         </>
