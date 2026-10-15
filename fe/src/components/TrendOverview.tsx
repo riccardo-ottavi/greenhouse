@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+    CartesianGrid,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
 } from "recharts";
 
 import { getReadingsBySensor } from "../api/sensor";
@@ -14,181 +14,198 @@ import type { Reading } from "../types/Reading";
 import type { Sensor } from "../types/Sensor";
 
 interface TrendOverviewProps {
-  sensors: Sensor[];
+    sensors: Sensor[];
 }
 
 export default function TrendOverview({
-  sensors,
+    sensors,
 }: TrendOverviewProps) {
-  const [selectedSensorId, setSelectedSensorId] =
-    useState<number | null>(sensors[0]?.id ?? null);
+    const [selectedSensorId, setSelectedSensorId] =
+        useState<number | null>(sensors[0]?.id ?? null);
 
-  const [readings, setReadings] = useState<Reading[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    const [readings, setReadings] = useState<Reading[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (selectedSensorId === null) {
-      setReadings([]);
-      return;
+    useEffect(() => {
+  if (selectedSensorId === null) {
+    setReadings([]);
+    setLoading(false);
+    return;
+  }
+
+  let cancelled = false;
+  let isInitialLoad = true;
+
+  async function loadReadings() {
+
+    if (isInitialLoad) {
+      setLoading(true);
     }
 
-    let cancelled = false;
+    try {
+      const data = await getReadingsBySensor(selectedSensorId!);
 
-    async function loadReadings() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await getReadingsBySensor(selectedSensorId!);
-
-        if (!cancelled) {
-          setReadings(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load readings"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (!cancelled) {
+        setReadings(data);
+        setError(null);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load readings"
+        );
+      }
+    } finally {
+      if (!cancelled && isInitialLoad) {
+        setLoading(false);
+        isInitialLoad = false;
       }
     }
+  }
 
+  void loadReadings();
+
+  const intervalId = window.setInterval(() => {
     void loadReadings();
+  }, 5000);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSensorId]);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
+}, [selectedSensorId]);
 
-  const selectedSensor = sensors.find(
-    (sensor) => sensor.id === selectedSensorId
-  );
+    const selectedSensor = sensors.find(
+        (sensor) => sensor.id === selectedSensorId
+    );
 
-  const chartData = [...readings]
-    .sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() -
-        new Date(b.timestamp).getTime()
-    )
-    .map((reading) => ({
-      ...reading,
-      time: new Date(reading.timestamp).toLocaleTimeString(
-        "it-IT",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
+    const chartData = [...readings]
+        .sort(
+            (a, b) =>
+                new Date(a.timestamp).getTime() -
+                new Date(b.timestamp).getTime()
+        )
+        .map((reading) => ({
+            ...reading,
+            time: new Date(reading.timestamp).toLocaleTimeString(
+                "it-IT",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }
+            ),
+        }));
+
+    useEffect(() => {
+        if (selectedSensorId === null && sensors.length > 0) {
+            setSelectedSensorId(sensors[0].id);
         }
-      ),
-    }));
+    }, [sensors, selectedSensorId]);
 
-  return (
-    <section className="trend-overview">
-      <div className="trend-overview-header">
-        <div>
-          <h3>Trend overview</h3>
-          <span>Environmental readings over time</span>
-        </div>
+    return (
+        <section className="trend-overview">
+            <div className="trend-overview-header">
+                <div>
+                    <h3>Trend overview</h3>
+                    <span>Environmental readings over time</span>
+                </div>
 
-        <select
-          aria-label="Select sensor"
-          value={selectedSensorId ?? ""}
-          onChange={(event) =>
-            setSelectedSensorId(
-              event.target.value
-                ? Number(event.target.value)
-                : null
-            )
-          }
-        >
-          {sensors.map((sensor) => (
-            <option key={sensor.id} value={sensor.id}>
-              {sensor.name}
-            </option>
-          ))}
-        </select>
-      </div>
+                <select
+                    aria-label="Select sensor"
+                    value={selectedSensorId ?? ""}
+                    onChange={(event) =>
+                        setSelectedSensorId(
+                            event.target.value
+                                ? Number(event.target.value)
+                                : null
+                        )
+                    }
+                >
+                    {sensors.map((sensor) => (
+                        <option key={sensor.id} value={sensor.id}>
+                            {sensor.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
-      {loading && <p>Loading readings...</p>}
+            {loading && <p>Loading readings...</p>}
 
-      {error && <p role="alert">{error}</p>}
+            {error && <p role="alert">{error}</p>}
 
-      {!loading && !error && sensors.length === 0 && (
-        <p>No sensors available.</p>
-      )}
+            {!loading && !error && sensors.length === 0 && (
+                <p>No sensors available.</p>
+            )}
 
-      {!loading &&
-        !error &&
-        sensors.length > 0 &&
-        readings.length === 0 && (
-          <p>No readings available for this sensor yet.</p>
-        )}
+            {!loading &&
+                !error &&
+                sensors.length > 0 &&
+                readings.length === 0 && (
+                    <p>No readings available for this sensor yet.</p>
+                )}
 
-      {!loading && !error && readings.length > 0 && (
-        <>
-          <div className="trend-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{
-                  top: 10,
-                  right: 20,
-                  left: 0,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#d9ded8"
-                />
+            {!loading && !error && readings.length > 0 && (
+                <>
+                    <div className="trend-chart">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                                data={chartData}
+                                margin={{
+                                    top: 10,
+                                    right: 20,
+                                    left: 0,
+                                    bottom: 5,
+                                }}
+                            >
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="#d9ded8"
+                                />
 
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 12 }}
-                />
+                                <XAxis
+                                    dataKey="time"
+                                    tick={{ fontSize: 12 }}
+                                />
 
-                <YAxis
-                  domain={["auto", "auto"]}
-                  tick={{ fontSize: 12 }}
-                  width={45}
-                />
+                                <YAxis
+                                    domain={["auto", "auto"]}
+                                    tick={{ fontSize: 12 }}
+                                    width={45}
+                                />
 
-                <Tooltip
-                  labelFormatter={(label) => `Time: ${label}`}
-                  formatter={(value) => [
-                    `${value} ${selectedSensor?.type === "TEMPERATURE"
-                      ? "°C"
-                      : selectedSensor?.type === "LIGHT"
-                        ? "lux"
-                        : "%"}`,
-                    selectedSensor?.name ?? "Value",
-                  ]}
-                />
+                                <Tooltip
+                                    labelFormatter={(label) => `Time: ${label}`}
+                                    formatter={(value) => [
+                                        `${value} ${selectedSensor?.type === "TEMPERATURE"
+                                            ? "°C"
+                                            : selectedSensor?.type === "LIGHT"
+                                                ? "lux"
+                                                : "%"}`,
+                                        selectedSensor?.name ?? "Value",
+                                    ]}
+                                />
 
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  name={selectedSensor?.name ?? "Value"}
-                  stroke="#4f7c59"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+                                <Line
+                                    type="monotone"
+                                    dataKey="value"
+                                    name={selectedSensor?.name ?? "Value"}
+                                    stroke="#4f7c59"
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={{ r: 4 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
 
-          <p className="trend-reading-count">
-            {readings.length} readings
-          </p>
-        </>
-      )}
-    </section>
-  );
+                    <p className="trend-reading-count">
+                        {readings.length} readings
+                    </p>
+                </>
+            )}
+        </section>
+    );
 }
