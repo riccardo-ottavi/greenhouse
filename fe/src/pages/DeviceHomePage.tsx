@@ -1,3 +1,4 @@
+
 import Hero from "../components/Hero";
 import menuSensor from "../assets/icons/menu-sensor.svg";
 import SensorOverviewCard from "../components/SensorOverviewCard";
@@ -10,8 +11,9 @@ import type { Actuator } from "../types/Actuator";
 import { getActuatorsByDevice } from "../api/actuator";
 import TrendOverview from "../components/TrendOverview";
 
-export default function DeviceHomePage() {
+const DEVICE_REFRESH_INTERVAL = 5000;
 
+export default function DeviceHomePage() {
     const { id } = useParams();
 
     const [sensors, setSensors] = useState<Sensor[]>([]);
@@ -19,6 +21,7 @@ export default function DeviceHomePage() {
 
     useEffect(() => {
         if (!id) return;
+
         const deviceId = Number(id);
 
         if (!Number.isInteger(deviceId) || deviceId <= 0) {
@@ -26,6 +29,7 @@ export default function DeviceHomePage() {
         }
 
         let cancelled = false;
+        let isInitialLoad = true;
 
         async function loadDeviceData() {
             try {
@@ -39,14 +43,26 @@ export default function DeviceHomePage() {
                     setActuators(actuatorData);
                 }
             } catch (error) {
-                console.error("Couldn't load device dashboard data", error);
+                if (!cancelled) {
+                    console.error(
+                        "Couldn't load device dashboard data",
+                        error
+                    );
+                }
+            } finally {
+                isInitialLoad = false;
             }
         }
 
         void loadDeviceData();
 
+        const intervalId = window.setInterval(() => {
+            void loadDeviceData();
+        }, DEVICE_REFRESH_INTERVAL);
+
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
         };
     }, [id]);
 
@@ -54,6 +70,7 @@ export default function DeviceHomePage() {
         <>
             <div className="device-homepage-container page">
                 <Hero />
+
                 <div className="sensors-overview">
                     <div className="sensors-overview-header">
                         <img src={menuSensor} alt="" />
@@ -61,8 +78,8 @@ export default function DeviceHomePage() {
                             <h3>Sensors</h3>
                             <span>Sensors state and values</span>
                         </div>
-
                     </div>
+
                     <div className="sensors-overview-row">
                         {sensors.map((s) => (
                             <SensorOverviewCard
@@ -71,9 +88,8 @@ export default function DeviceHomePage() {
                             />
                         ))}
                     </div>
-
-
                 </div>
+
                 <div className="dashboard-bottom">
                     <div className="trend-history">
                         <TrendOverview sensors={sensors} />
@@ -85,6 +101,5 @@ export default function DeviceHomePage() {
                 </div>
             </div>
         </>
-
-    )
+    );
 }
