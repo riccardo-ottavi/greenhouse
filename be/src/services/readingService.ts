@@ -17,7 +17,7 @@ import {
 } from "./readingValidationService.js";
 
 import {
-  getEnvironmentalAlert
+  evaluateEnvironmentalAlert
 } from "./environmentalAlertService.js";
 
 import {
@@ -33,15 +33,20 @@ import {
   updateSensorCurrentValueWithConnection
 } from "../repositories/readingRepository.js";
 
+import { Sensor } from "../types/Sensor.js";
+
+
 export async function getAllReadings(): Promise<Reading[]> {
   return findAllReadings();
 }
+
 
 export async function getReadingById(
   id: number
 ): Promise<Reading | undefined> {
   return findReadingById(id);
 }
+
 
 export async function createReading(
   reading: ReadingInput
@@ -64,10 +69,15 @@ export async function createReading(
     reading.value
   );
 
-  const expectedUnit = getUnitFromSensorType(sensor.type);
+  const expectedUnit = getUnitFromSensorType(
+    sensor.type
+  );
 
   if (reading.unit !== expectedUnit) {
-    throw new AppError("Unit does not match sensor type", 400);
+    throw new AppError(
+      "Unit does not match sensor type",
+      400
+    );
   }
 
   const unit = expectedUnit;
@@ -89,6 +99,13 @@ export async function createReading(
     timestamp
   );
 
+  await evaluateEnvironmentalAlert(
+    reading.sensorId,
+    sensor.type,
+    reading.value,
+    timestamp
+  );
+
   return {
     id,
     sensorId: reading.sensorId,
@@ -97,6 +114,7 @@ export async function createReading(
     timestamp
   };
 }
+
 
 export async function getReadingsBySensorId(
   sensorId: number
@@ -117,15 +135,15 @@ export async function getReadingsBySensorId(
   );
 }
 
+
 export async function validateSensorBelongsToDevice(
   deviceId: string,
   sensorId: number
 ): Promise<void> {
-  const belongsToDevice =
-    await sensorBelongsToDevice(
-      deviceId,
-      sensorId
-    );
+  const belongsToDevice = await sensorBelongsToDevice(
+    deviceId,
+    sensorId
+  );
 
   if (!belongsToDevice) {
     throw new AppError(
@@ -134,6 +152,7 @@ export async function validateSensorBelongsToDevice(
     );
   }
 }
+
 
 export async function createDeviceReadings(
   input: DeviceReadingInput
@@ -153,6 +172,7 @@ export async function createDeviceReadings(
 
   const validatedReadings: {
     sensorId: number;
+    sensorType: Sensor["type"];
     value: number;
     unit: ReadingUnit;
     timestamp: Date;
@@ -180,10 +200,9 @@ export async function createDeviceReadings(
       reading.value
     );
 
-    const expectedUnit =
-      getUnitFromSensorType(
-        sensor.type
-      );
+    const expectedUnit = getUnitFromSensorType(
+      sensor.type
+    );
 
     if (reading.unit !== expectedUnit) {
       throw new AppError(
@@ -192,19 +211,9 @@ export async function createDeviceReadings(
       );
     }
 
-    const alert = getEnvironmentalAlert(
-      sensor.type,
-      reading.value
-    );
-
-    if (alert) {
-      console.log(
-        `Environmental alert: ${alert} (sensor ${reading.sensorId}, value: ${reading.value}${reading.unit})`
-      );
-    }
-
     validatedReadings.push({
       sensorId: reading.sensorId,
+      sensorType: sensor.type,
       value: reading.value,
       unit: reading.unit,
       timestamp: new Date(
@@ -213,23 +222,20 @@ export async function createDeviceReadings(
     });
   }
 
-  const connection =
-    await db.getConnection();
+  const connection = await db.getConnection();
+  const createdReadings: Reading[] = [];
 
   try {
     await connection.beginTransaction();
 
-    const createdReadings: Reading[] = [];
-
     for (const reading of validatedReadings) {
-      const id =
-        await insertReadingWithConnection(
-          connection,
-          reading.sensorId,
-          reading.value,
-          reading.unit,
-          reading.timestamp
-        );
+      const id = await insertReadingWithConnection(
+        connection,
+        reading.sensorId,
+        reading.value,
+        reading.unit,
+        reading.timestamp
+      );
 
       await updateSensorCurrentValueWithConnection(
         connection,
@@ -248,12 +254,21 @@ export async function createDeviceReadings(
     }
 
     await connection.commit();
-
-    return createdReadings;
   } catch (error) {
     await connection.rollback();
     throw error;
   } finally {
     connection.release();
   }
+
+  for (const reading of validatedReadings) {
+    await evaluateEnvironmentalAlert(
+      reading.sensorId,
+      reading.sensorType,
+      reading.value,
+      reading.timestamp
+    );
+  }
+
+  return createdReadings;
 }
