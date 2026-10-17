@@ -10,6 +10,8 @@ import ActuatorsOverview from "../components/ActuatorsOverview";
 import type { Actuator } from "../types/Actuator";
 import { getActuatorsByDevice } from "../api/actuator";
 import TrendOverview from "../components/TrendOverview";
+import { getActiveEnvironmentalAlerts } from "../api/environmentalAlert";
+import type { EnvironmentalAlert } from "../types/EnvironmentalAlert";
 
 const DEVICE_REFRESH_INTERVAL = 5000;
 
@@ -18,6 +20,7 @@ export default function DeviceHomePage() {
 
     const [sensors, setSensors] = useState<Sensor[]>([]);
     const [actuators, setActuators] = useState<Actuator[]>([]);
+    const [environmentalAlerts, setEnvironmentalAlerts] = useState<EnvironmentalAlert[]>([]);
 
     useEffect(() => {
         if (!id) return;
@@ -33,14 +36,16 @@ export default function DeviceHomePage() {
 
         async function loadDeviceData() {
             try {
-                const [sensorData, actuatorData] = await Promise.all([
+                const [sensorData, actuatorData, alertData] = await Promise.all([
                     getSensorsByDevice(deviceId),
                     getActuatorsByDevice(deviceId),
+                    getActiveEnvironmentalAlerts(),
                 ]);
 
                 if (!cancelled) {
                     setSensors(sensorData);
                     setActuators(actuatorData);
+                    setEnvironmentalAlerts(alertData);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -81,10 +86,13 @@ export default function DeviceHomePage() {
                     </div>
 
                     <div className="sensors-overview-row">
-                        {sensors.map((s) => (
+                        {sensors.map((sensor) => (
                             <SensorOverviewCard
-                                key={s.id}
-                                sensor={s}
+                                key={sensor.id}
+                                sensor={sensor}
+                                alert={environmentalAlerts.find(
+                                    (item) => item.sensorId === sensor.id
+                                )}
                             />
                         ))}
                     </div>

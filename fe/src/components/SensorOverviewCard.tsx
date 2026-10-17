@@ -1,8 +1,10 @@
+
 import humidityIcon from "../assets/icons/humidity-drop.svg";
 import lightIcon from "../assets/icons/sun-light.svg";
 import soilMoistureIcon from "../assets/icons/soil-sprout.svg";
 import temperatureIcon from "../assets/icons/thermometer.svg";
 import type { Sensor, SensorType } from "../types/Sensor";
+import type { EnvironmentalAlert } from "../types/EnvironmentalAlert";
 
 const sensorIcons: Record<SensorType, string> = {
     TEMPERATURE: temperatureIcon,
@@ -18,8 +20,16 @@ const sensorUnits: Record<SensorType, string> = {
     LIGHT: "lux",
 };
 
+const alertMessages: Record<EnvironmentalAlert["type"], string> = {
+    HIGH_TEMPERATURE: "High temperature",
+    HIGH_HUMIDITY: "High humidity",
+    LOW_SOIL_MOISTURE: "Low soil moisture",
+    LOW_LIGHT: "Insufficient light",
+};
+
 interface SensorOverviewCardProps {
     sensor: Sensor;
+    alert?: EnvironmentalAlert;
 }
 
 function formatLastUpdate(lastUpdate: string | null): string {
@@ -36,6 +46,7 @@ function formatLastUpdate(lastUpdate: string | null): string {
 
 export default function SensorOverviewCard({
     sensor,
+    alert,
 }: SensorOverviewCardProps) {
     const value = sensor.type === "LIGHT"
         ? sensor.currentValue.toLocaleString(undefined, {
@@ -58,12 +69,21 @@ export default function SensorOverviewCard({
                 <span className="sensor-card-type">
                     {sensor.type.replaceAll("_", " ")}
                 </span>
+
                 <strong>
                     {value}
                     <span>{sensorUnits[sensor.type]}</span>
                 </strong>
+
                 <h4>{sensor.name}</h4>
             </div>
+
+            {alert && (
+                <div className="sensor-alert">
+                    <span className="sensor-alert-indicator">!</span>
+                    <span>{alertMessages[alert.type]}</span>
+                </div>
+            )}
 
             <div className="sensor-card-footer">
                 <span>Updated {formatLastUpdate(sensor.lastUpdate)}</span>
