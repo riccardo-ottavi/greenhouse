@@ -1,6 +1,10 @@
-import { getActuatorState, sendDeviceStatus, DEVICE_HEADERS } from "./deviceService.js";
+import { getActuatorState, sendDeviceStatus, sendExternalWeather, DEVICE_HEADERS } from "./deviceService.js";
 import { getOutsideWeather } from "./weatherService.js";
 import simulationConfig from "../config/simulationConfig.js";
+
+const WEATHER_SEND_INTERVAL = 60 * 1000;
+
+let lastWeatherSentAt = 0;
 
 const sensors = [
     {
@@ -27,6 +31,18 @@ const sensors = [
 
 export async function runSimulation() {
     const weather = await getOutsideWeather();
+
+    const now = Date.now();
+
+    if (now - lastWeatherSentAt >= WEATHER_SEND_INTERVAL) {
+        try {
+            await sendExternalWeather(weather);
+            lastWeatherSentAt = now;
+            console.log("External weather sent to backend:", weather);
+        } catch (error) {
+            console.error("External weather error:", error.message);
+        }
+    }
 
     sensors.forEach((sensor) => {
         sensor.currentValue = generateNextValue(sensor, weather);
@@ -360,7 +376,7 @@ function applyAutomaticRules() {
     ) {
         if (
             soilSensor.currentValue <
-                rules.pump.turnOnBelow &&
+            rules.pump.turnOnBelow &&
             pump.state === "OFF"
         ) {
             pump.state = "ON";
@@ -372,7 +388,7 @@ function applyAutomaticRules() {
 
         if (
             soilSensor.currentValue >=
-                rules.pump.turnOffAtOrAbove &&
+            rules.pump.turnOffAtOrAbove &&
             pump.state === "ON"
         ) {
             pump.state = "OFF";
@@ -390,15 +406,15 @@ function applyAutomaticRules() {
     ) {
         const shouldTurnOn =
             temperatureSensor.currentValue >
-                rules.fan.turnOnAbove.temperature ||
+            rules.fan.turnOnAbove.temperature ||
             humiditySensor.currentValue >
-                rules.fan.turnOnAbove.humidity;
+            rules.fan.turnOnAbove.humidity;
 
         const shouldTurnOff =
             temperatureSensor.currentValue <
-                rules.fan.turnOffBelow.temperature &&
+            rules.fan.turnOffBelow.temperature &&
             humiditySensor.currentValue <
-                rules.fan.turnOffBelow.humidity;
+            rules.fan.turnOffBelow.humidity;
 
         if (
             shouldTurnOn &&
@@ -431,9 +447,9 @@ function applyAutomaticRules() {
 
         const withinOperatingWindow =
             hour >=
-                rules.growLight.operatingWindow.startHour &&
+            rules.growLight.operatingWindow.startHour &&
             hour <
-                rules.growLight.operatingWindow.endHour;
+            rules.growLight.operatingWindow.endHour;
 
         if (!withinOperatingWindow) {
             if (growLight.state === "ON") {
@@ -446,7 +462,7 @@ function applyAutomaticRules() {
         } else {
             if (
                 lightSensor.currentValue <
-                    rules.growLight.turnOnBelow &&
+                rules.growLight.turnOnBelow &&
                 growLight.state === "OFF"
             ) {
                 growLight.state = "ON";
@@ -458,7 +474,7 @@ function applyAutomaticRules() {
 
             if (
                 lightSensor.currentValue >=
-                    rules.growLight.turnOffAtOrAbove &&
+                rules.growLight.turnOffAtOrAbove &&
                 growLight.state === "ON"
             ) {
                 growLight.state = "OFF";

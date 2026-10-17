@@ -197,3 +197,28 @@ export async function sendHeartbeat() {
 
   return response.json();
 }
+
+export async function sendExternalWeather(weather) {
+    const response = await fetch(
+        `${BACKEND_URL}/api/device/weather`,
+        {
+            method: "POST",
+            headers: DEVICE_HEADERS,
+            body: JSON.stringify({
+                deviceId: DEVICE_ID,
+                temperature: weather.temperature,
+                humidity: weather.humidity,
+                source: weather.source,
+                observedAt: weather.observedAt
+            })
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            `Failed to send external weather: ${response.status}`
+        );
+    }
+
+    return response.json();
+}

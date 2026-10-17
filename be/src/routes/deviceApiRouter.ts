@@ -8,9 +8,13 @@ import { getPending, commandResult } from "../controllers/commandController.js";
 
 import { deviceAuth } from "../middlewares/deviceAuth.js"; 
 
+import { receiveExternalWeather } from "../controllers/weatherController.js";
+
 const router = Router();
 
 router.use(deviceAuth);
+
+router.post("/weather", receiveExternalWeather);
 
 router.post("/heartbeat", heartbeat);
 
