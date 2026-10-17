@@ -247,6 +247,32 @@ footer {
             border-radius: $border-radius;
         }
 
+        .sensor-alert {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid #f3d5d5;
+            border-radius: $border-radius;
+            background-color: #fffafa;
+            color: #b42318;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .sensor-alert-indicator {
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #fde9e9;
+            color: #b42318;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
         .sensor-card-header {
             display: flex;
             align-items: flex-start;
@@ -322,7 +348,7 @@ footer {
         }
     }
 
-    .dashboard-bottom{
+    .dashboard-bottom {
         display: flex;
         gap: 24px;
         width: 100%;
@@ -334,7 +360,7 @@ footer {
         background-color: $color-surface-primary;
     }
 
-    .actuators-overview{
+    .actuators-overview {
         height: 350px;
         width: 45%;
         background-color: $color-surface-primary;
@@ -447,43 +473,43 @@ footer {
 }
 
 .trend-overview {
-  width: 100%;
-  min-width: 0;
+    width: 100%;
+    min-width: 0;
 }
 
 .trend-overview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
 
-  h3 {
-    margin: 0 0 0.35rem;
-  }
+    h3 {
+        margin: 0 0 0.35rem;
+    }
 
-  span {
-    font-size: 0.875rem;
-    color: #737b73;
-  }
+    span {
+        font-size: 0.875rem;
+        color: #737b73;
+    }
 
-  select {
-    max-width: 50%;
-    padding: 0.5rem;
-    border: 1px solid #d9ded8;
-    border-radius: 0.5rem;
-    background: white;
-  }
+    select {
+        max-width: 50%;
+        padding: 0.5rem;
+        border: 1px solid #d9ded8;
+        border-radius: 0.5rem;
+        background: white;
+    }
 }
 
 .trend-chart {
-  width: 100%;
-  height: 280px;
-  min-width: 0;
+    width: 100%;
+    height: 280px;
+    min-width: 0;
 }
 
 .trend-reading-count {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-  color: #737b73;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: #737b73;
 }
