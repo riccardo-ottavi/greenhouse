@@ -56,8 +56,25 @@ Examples of environmental warnings and alerts include:
 
 - LOW_LIGHT
 
-These conditions will not initially be modelled as independent persistent database entities. They may instead be derived from sensor telemetry and used by application logic or the frontend in a future iteration.
+Environmental alerts represent abnormal environmental conditions detected from valid sensor readings. They are separate from sensor operational status. A sensor can therefore remain ONLINE while reporting a value that triggers an environmental alert.
 
+The system currently supports the following environmental alert types:
+
+HIGH_TEMPERATURE
+
+HIGH_HUMIDITY
+
+LOW_SOIL_MOISTURE
+
+LOW_LIGHT
+
+The backend evaluates incoming sensor readings against configurable environmental thresholds. When a threshold is crossed, the backend creates a persistent environmental alert associated with the relevant sensor.
+
+An alert remains ACTIVE while the environmental condition persists. Further readings that continue to exceed the same threshold will not create duplicate active alerts for the same sensor and alert type. When a subsequent reading returns to the normal range, the alert is marked as RESOLVED and its resolution timestamp is recorded.
+
+Environmental alerts are persisted independently from sensor operational status and historical readings. The backend is responsible for evaluating alert conditions and managing their lifecycle, while the frontend retrieves active alerts and displays them alongside the corresponding sensor cards.
+
+Resolved alerts remain stored in the database, preserving a basic history of environmental events. The current frontend displays active alerts only; historical alert browsing and user acknowledgement are outside the current scope.
 Actuators will use two separate concepts: an operational state and a control mode.
 
 The operational state will initially support:
@@ -331,6 +348,27 @@ Actuator State
 ```
 
 The automatic rules will be implemented as configurable parameters so that thresholds and timing behaviour can be adjusted without changing the overall architecture.
+
+**### Environmental Alert Rules**
+
+Environmental alerts are evaluated independently from automatic actuator control. Their purpose is to identify abnormal environmental conditions and make them visible to the user, rather than directly controlling actuators.
+
+The current implementation uses the following thresholds:
+
+- HIGH_TEMPERATURE — triggered when air temperature exceeds 30 °C.
+- HIGH_HUMIDITY — triggered when relative air humidity exceeds 80%.
+- LOW_SOIL_MOISTURE — triggered when soil moisture falls below 20%.
+- LOW_LIGHT — triggered when light intensity falls below 5,000 lux.
+
+These thresholds are initial simulation parameters and do not represent universal agronomic recommendations.
+
+When a threshold is crossed, the backend creates an ACTIVE alert associated with the relevant sensor. An existing active alert is not duplicated by subsequent readings for the same sensor and alert type.
+
+When a subsequent valid reading returns to the normal range, the backend marks the alert as RESOLVED and records its resolution timestamp.
+
+The frontend periodically retrieves active environmental alerts and displays each alert on the corresponding sensor card. Resolved alerts are no longer included in the active-alert API response, but their records remain in the database.
+
+Environmental alert thresholds and automatic actuator control thresholds serve different purposes and may therefore use different values.
 
 ---
 
@@ -841,7 +879,14 @@ PERSISTED
     ├── creation time
 
     └── completion time
-
+├── Environmental alerts
+│   ├── alert identity
+│   ├── associated sensor
+│   ├── alert type
+│   ├── alert status (ACTIVE or RESOLVED)
+│   ├── value that triggered the alert
+│   ├── triggering timestamp
+│   └── resolution timestamp, when applicable
 ```
 
 The Device identity and configuration will be persisted so that the backend can identify the Device, determine its current availability, and maintain its relationships with sensors and actuators.
@@ -862,6 +907,12 @@ The system will persist Commands sent by the backend to the Device. Commands wil
 
 The completedAt timestamp will represent the time at which a command finished its execution lifecycle, whether the final status is EXECUTED or FAILED.
 
+The system also persists environmental alerts in a dedicated database table. Each alert is associated with the sensor that triggered it and records the alert type, status, triggering value, and relevant timestamps.
+
+An active alert is resolved when a subsequent valid reading returns to the normal range. Resolved alerts are retained in the database rather than deleted, allowing the system to preserve a basic record of previous environmental events.
+
+The backend is responsible for creating, updating, and resolving alerts. The frontend does not calculate environmental thresholds; it retrieves active alerts from the backend and displays them alongside the relevant sensors.
+
 ### Information That Will Not Initially Be Persisted
 
 The following information will not initially be stored as independent database records:
@@ -873,8 +924,6 @@ NOT PERSISTED INITIALLY
 ├── Individual heartbeat history
 
 ├── Automatic control rules
-
-├── Environmental alerts
 
 ├── Hardware-specific information
 
@@ -937,6 +986,8 @@ Sensor 1 ───── N Reading
 Device 1 ───── N Actuator
 
 Actuator 1 ─── N Command
+
+Sensor 1 ───────── N EnvironmentalAlert
 
 ```
 
@@ -1244,4 +1295,26 @@ The backend correctly handles failed command execution and records the failure w
 
 | Failed command handling                | PASS   |
 
+| Environmental alert lifecycle          | PASS   |
+
 The backend has therefore been verified not only at the individual endpoint level, but also through the complete communication flow between the simulated device and the backend. The main backend and simulator behaviors defined in the project specification have been successfully validated through end-to-end functional testing.
+
+**### 12. Environmental Alert Lifecycle**
+
+**Goal:** verify that environmental alerts are created, persisted, retrieved by the frontend, and resolved when environmental conditions return to the normal range.
+
+**Tested behavior:**
+
+- Submit a soil moisture reading below the configured threshold.
+- Verify that the backend creates an ACTIVE LOW_SOIL_MOISTURE alert.
+- Verify that the alert is stored in the database with the triggering value and timestamp.
+- Verify that the active-alert API returns the alert.
+- Verify that the frontend displays the warning on the corresponding sensor card.
+- Restart the simulator and allow subsequent readings to return to the normal range.
+- Verify that the backend resolves the alert and records its resolution timestamp.
+- Verify that the alert disappears from the dashboard after the next refresh.
+- Verify that resolved alerts are retained in the database.
+
+**Result: PASS**
+
+The environmental alert lifecycle was verified end to end. The backend manages alert creation and resolution, while the frontend automatically reflects the current active-alert state.
