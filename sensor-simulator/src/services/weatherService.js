@@ -1,3 +1,4 @@
+
 const LATITUDE = 43.9;
 const LONGITUDE = 12.9;
 
@@ -55,7 +56,9 @@ export async function getOutsideWeather() {
 
         cachedWeather = {
             temperature,
-            humidity
+            humidity,
+            source: "OPEN_METEO",
+            observedAt: new Date().toISOString()
         };
 
         cachedAt = Date.now();
@@ -69,12 +72,15 @@ export async function getOutsideWeather() {
             error.message
         );
 
-        console.log("Weather source: LOCAL FALLBACK", {
-            temperature: fallbackWeather.temperature,
-            humidity: fallbackWeather.humidity
-        });
+        const weather = {
+            ...getFallbackWeather(),
+            source: "FALLBACK",
+            observedAt: new Date().toISOString()
+        };
 
-        return getFallbackWeather();
+        console.log("Weather source: LOCAL FALLBACK", weather);
+
+        return weather;
     }
 }
 
