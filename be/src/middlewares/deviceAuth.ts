@@ -1,3 +1,4 @@
+
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
@@ -16,7 +17,12 @@ export async function deviceAuth(
       req.body?.deviceId ??
       req.query.deviceId;
 
-    if (!apiKey || !deviceId) {
+    if (
+      typeof apiKey !== "string" ||
+      apiKey.length === 0 ||
+      typeof deviceId !== "string" ||
+      deviceId.trim().length === 0
+    ) {
       res.status(401).json({
         message: "Authentication required"
       });
@@ -24,11 +30,12 @@ export async function deviceAuth(
     }
 
     const apiKeyHash =
-      await getDeviceApiKeyHash(
-        deviceId
-      );
+      await getDeviceApiKeyHash(deviceId);
 
-    if (!apiKeyHash) {
+    if (
+      typeof apiKeyHash !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(apiKeyHash)
+    ) {
       res.status(401).json({
         message: "Invalid authentication credentials"
       });
@@ -43,14 +50,8 @@ export async function deviceAuth(
 
     const isValid =
       crypto.timingSafeEqual(
-        Buffer.from(
-          providedApiKeyHash,
-          "hex"
-        ),
-        Buffer.from(
-          apiKeyHash,
-          "hex"
-        )
+        Buffer.from(providedApiKeyHash, "hex"),
+        Buffer.from(apiKeyHash, "hex")
       );
 
     if (!isValid) {
@@ -60,9 +61,10 @@ export async function deviceAuth(
       return;
     }
 
+    req.authenticatedDeviceId = deviceId;
+
     next();
   } catch (error) {
     next(error);
   }
 }
-

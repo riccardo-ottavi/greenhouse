@@ -1,17 +1,21 @@
+
 import { Request, Response } from "express";
 import { AppError } from "../errors/AppError.js";
-import { completeCommand, getPendingCommands } from "../services/commandService.js";
+import {
+  completeCommand,
+  getPendingCommands
+} from "../services/commandService.js";
 
 export async function getPending(
   req: Request,
   res: Response
 ): Promise<void> {
-  const deviceId = req.query.deviceId;
+  const deviceId = req.authenticatedDeviceId;
 
-  if (!deviceId || typeof deviceId !== "string") {
+  if (!deviceId) {
     throw new AppError(
-      "deviceId query parameter is required",
-      400
+      "Authenticated device is required",
+      401
     );
   }
 
@@ -26,15 +30,22 @@ export async function commandResult(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { commandId, deviceId, success } = req.body;
+  const { commandId, success } = req.body;
+  const deviceId = req.authenticatedDeviceId;
+
+  if (!deviceId) {
+    throw new AppError(
+      "Authenticated device is required",
+      401
+    );
+  }
 
   if (
     typeof commandId !== "number" ||
-    typeof deviceId !== "string" ||
     typeof success !== "boolean"
   ) {
     throw new AppError(
-      "commandId, deviceId and success are required",
+      "commandId and success are required",
       400
     );
   }

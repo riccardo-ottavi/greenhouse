@@ -55,7 +55,16 @@ export async function createFromDevice(
   req: Request,
   res: Response
 ): Promise<void> {
-  const readings = await createDeviceReadings(req.body);
+  const deviceId = req.authenticatedDeviceId;
+
+  if (!deviceId) {
+    throw new AppError("Authenticated device is required", 401);
+  }
+
+  const readings = await createDeviceReadings({
+    ...req.body,
+    deviceId
+  });
 
   res.status(201).json(readings);
 }
