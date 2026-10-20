@@ -37,6 +37,7 @@ export async function getPendingCommands(
   return rows as Command[];
 }
 
+
 export async function completeCommand(
   commandId: number,
   deviceId: string,
@@ -63,10 +64,7 @@ export async function completeCommand(
           AND devices.device_id = ?
         FOR UPDATE
       `,
-      [
-        commandId,
-        deviceId
-      ]
+      [commandId, deviceId]
     );
 
     const commands = rows as {
@@ -108,7 +106,38 @@ export async function completeCommand(
       return;
     }
 
+    const [actuatorRows] = await connection.query(
+      `
+        SELECT id
+        FROM actuators
+        WHERE id = ?
+          AND device_id = (
+            SELECT id
+            FROM devices
+            WHERE device_id = ?
+          )
+        FOR UPDATE
+      `,
+      [command.actuatorId, deviceId]
+    );
+
+    const actuators = actuatorRows as { id: number }[];
+
+    if (actuators.length === 0) {
+      throw new AppError(
+        "Actuator not found for the specified device",
+        404
+      );
+    }
+
     if (command.type === "SET_ACTUATOR_STATE") {
+      if (command.state === null) {
+        throw new AppError(
+          "Missing state for SET_ACTUATOR_STATE",
+          400
+        );
+      }
+
       await connection.query(
         `
           UPDATE actuators
@@ -122,15 +151,16 @@ export async function completeCommand(
               WHERE device_id = ?
             )
         `,
-        [
-          command.state,
-          command.actuatorId,
-          deviceId
-        ]
+        [command.state, command.actuatorId, deviceId]
       );
-    }
+    } else if (command.type === "SET_CONTROL_MODE") {
+      if (command.controlMode === null) {
+        throw new AppError(
+          "Missing control mode for SET_CONTROL_MODE",
+          400
+        );
+      }
 
-    if (command.type === "SET_CONTROL_MODE") {
       await connection.query(
         `
           UPDATE actuators
@@ -144,11 +174,12 @@ export async function completeCommand(
               WHERE device_id = ?
             )
         `,
-        [
-          command.controlMode,
-          command.actuatorId,
-          deviceId
-        ]
+        [command.controlMode, command.actuatorId, deviceId]
+      );
+    } else {
+      throw new AppError(
+        "Unsupported command type",
+        400
       );
     }
 
@@ -159,6 +190,7 @@ export async function completeCommand(
           status = 'EXECUTED',
           completed_at = CURRENT_TIMESTAMP
         WHERE id = ?
+          AND status = 'PENDING'
       `,
       [commandId]
     );
@@ -171,6 +203,7 @@ export async function completeCommand(
     connection.release();
   }
 }
+
 
 export async function getActuatorForCommand(
   actuatorId: number

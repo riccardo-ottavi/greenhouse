@@ -6,6 +6,7 @@ export const TEST_DEVICE_ID = "GREENHOUSE_TEST";
 export const TEST_API_KEY = "test-device-api-key";
 
 export async function resetTestDatabase(): Promise<void> {
+  await db.query("DELETE FROM environmental_alerts");
   await db.query("DELETE FROM commands");
   await db.query("DELETE FROM readings");
   await db.query("DELETE FROM actuators");
