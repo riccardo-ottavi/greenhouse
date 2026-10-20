@@ -1318,3 +1318,61 @@ The backend has therefore been verified not only at the individual endpoint leve
 **Result: PASS**
 
 The environmental alert lifecycle was verified end to end. The backend manages alert creation and resolution, while the frontend automatically reflects the current active-alert state.
+
+## Public Demo and Security Strategy
+
+### 1. Public Demo
+
+The Greenhouse Monitoring System is intended to be accessible as a public portfolio project. Recruiters and other visitors should be able to explore the dashboard without creating an account.
+
+The public dashboard will provide read-only access to selected greenhouse data, including:
+
+- Device connectivity and status
+- Current sensor measurements
+- Historical readings and charts
+- Actuator states and control modes
+- Environmental alerts
+
+Only information required by the public dashboard should be exposed. Internal configuration, credentials, API key hashes, and other sensitive implementation details must never be included in public API responses.
+
+### 2. Authorization Boundaries
+
+The application distinguishes between three access categories:
+
+- **Public dashboard:** read-only access to explicitly approved monitoring data.
+- **Operational API:** protected operations that create actuator commands, insert readings, or modify system configuration.
+- **Device API:** authenticated communication between the backend and authorized devices or simulators.
+
+Device authentication must remain independent from dashboard access. Device API keys must not be exposed to or embedded in the frontend.
+
+### 3. Device Authentication
+
+Each device must authenticate using its own API key. The backend must derive the authenticated device identity from the validated credentials rather than trusting a device identifier supplied by the client.
+
+Device operations must enforce device ownership when retrieving commands, submitting readings, reporting status, or completing commands.
+
+### 4. Data Integrity and Command Authorization
+
+Input validation and authorization are separate responsibilities.
+
+All write operations must validate their payloads and enforce the appropriate authorization rules on the backend. Public clients must not be able to insert arbitrary readings, create actuator commands, or modify device configuration without authorization.
+
+Device-originated readings must be associated with sensors belonging to the authenticated device.
+
+### 5. Planned Security Work
+
+Before public deployment:
+
+- Define an explicit allowlist of public read-only endpoints.
+- Protect actuator command creation and other operational write endpoints.
+- Remove or protect redundant reading-ingestion endpoints that bypass device authentication.
+- Verify that public responses expose only approved fields.
+- Add tests for anonymous access, unauthorized writes, invalid payloads, and cross-device isolation.
+- Configure HTTPS and production secrets through environment variables.
+- Verify that frontend code contains no device credentials.
+
+### 6. Future Extensions
+
+A dedicated authenticated operator interface may be introduced in a later phase. A separate interactive demo environment may also be considered so visitors can experiment with actuator controls without modifying the primary monitoring environment.
+
+These extensions are not prerequisites for the initial public, read-only portfolio demo.
