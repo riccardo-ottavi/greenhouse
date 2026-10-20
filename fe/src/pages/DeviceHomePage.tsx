@@ -32,7 +32,6 @@ export default function DeviceHomePage() {
         }
 
         let cancelled = false;
-        let isInitialLoad = true;
 
         async function loadDeviceData() {
             try {
@@ -54,8 +53,6 @@ export default function DeviceHomePage() {
                         error
                     );
                 }
-            } finally {
-                isInitialLoad = false;
             }
         }
 

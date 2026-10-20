@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import fanIcon from "../assets/icons/fan.svg";
 import growLightIcon from "../assets/icons/bulb.svg";
 import waterPumpIcon from "../assets/icons/water-pump.svg";
@@ -35,34 +35,6 @@ export default function ActuatorsOverview({
 }: ActuatorsOverviewProps) {
     const [pendingActuators, setPendingActuators] = useState<number[]>([]);
     const [feedback, setFeedback] = useState<ActuatorFeedback | null>(null);
-
-    
-useEffect(() => {
-    if (!feedback || feedback.isError) {
-        return;
-    }
-
-    const actuator = actuators.find(
-        (item) => item.id === feedback.actuatorId
-    );
-
-    if (!actuator) {
-        return;
-    }
-
-    const stateReached =
-        feedback.expectedState !== undefined &&
-        actuator.state === feedback.expectedState;
-
-    const modeReached =
-        feedback.expectedControlMode !== undefined &&
-        actuator.controlMode === feedback.expectedControlMode;
-
-    if (stateReached || modeReached) {
-        setFeedback(null);
-    }
-}, [actuators, feedback]);
-
 
     async function handleStateChange(
         actuatorId: number,
@@ -148,9 +120,16 @@ useEffect(() => {
                         );
 
                         const actuatorFeedback =
-                            feedback?.actuatorId === actuator.id
-                                ? feedback
-                                : null;
+                            feedback?.actuatorId === actuator.id ? feedback : null;
+
+                        const feedbackResolved =
+                            actuatorFeedback !== null &&
+                            (
+                                (actuatorFeedback.expectedState !== undefined &&
+                                    actuator.state === actuatorFeedback.expectedState) ||
+                                (actuatorFeedback.expectedControlMode !== undefined &&
+                                    actuator.controlMode === actuatorFeedback.expectedControlMode)
+                            );
 
                         return (
                             <li className="actuator-row" key={actuator.id}>
@@ -251,7 +230,7 @@ useEffect(() => {
                                         </span>
                                     )}
 
-                                    {actuatorFeedback && (
+                                    {actuatorFeedback && !feedbackResolved && (
                                         <span
                                             className={`actuator-feedback ${actuatorFeedback.isError
                                                 ? "is-error"
