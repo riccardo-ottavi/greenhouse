@@ -1,5 +1,11 @@
 import { updateActuatorStatus } from "../services/actuatorService";
-import { getAllDevices, getDeviceActuatorStates, getDeviceById, updateHeartbeat } from "../services/deviceService";
+import {
+    getAllDevices,
+    getDeviceActuatorStates,
+    getDeviceSensorConfigs,
+    getDeviceById,
+    updateHeartbeat
+} from "../services/deviceService";
 import { Request, Response } from "express";
 import { getSensorViewsByDeviceId } from "../services/sensorService";
 
@@ -142,11 +148,15 @@ export async function getConfig(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const actuators = await getDeviceActuatorStates(deviceId);
+        const [actuators, sensors] = await Promise.all([
+            getDeviceActuatorStates(deviceId),
+            getDeviceSensorConfigs(deviceId)
+        ]);
 
         res.json({
             deviceId,
-            actuators
+            actuators,
+            sensors
         });
     } catch (err) {
         console.error(err);

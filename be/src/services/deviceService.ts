@@ -5,6 +5,7 @@ import {
   getAllDevices as findAllDevices,
   getDeviceById as findDeviceById,
   getDeviceActuatorStates as findDeviceActuatorStates,
+  getDeviceSensorConfigs as findDeviceSensorConfigs,
   updateHeartbeat as updateDeviceHeartbeat,
   markOfflineDevices as markDevicesOffline
 } from "../repositories/deviceRepository.js";
@@ -25,6 +26,12 @@ export async function getDeviceActuatorStates(
   deviceId: string
 ) {
   return findDeviceActuatorStates(deviceId);
+}
+
+export async function getDeviceSensorConfigs(
+  deviceId: string
+) {
+  return findDeviceSensorConfigs(deviceId);
 }
 
 export async function updateHeartbeat(
