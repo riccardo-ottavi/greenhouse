@@ -1,5 +1,12 @@
+
 import { updateActuatorStatus } from "../services/actuatorService";
-import { getAllDevices, getDeviceActuatorStates, getDeviceById, updateHeartbeat } from "../services/deviceService";
+import {
+    getAllDevices,
+    getDeviceActuatorStates,
+    getDeviceSensorConfigs,
+    getDeviceById,
+    updateHeartbeat
+} from "../services/deviceService";
 import { Request, Response } from "express";
 import { getSensorViewsByDeviceId } from "../services/sensorService";
 
@@ -49,11 +56,11 @@ export async function show(req: Request, res: Response) {
 
 export async function heartbeat(req: Request, res: Response) {
     try {
-        const { deviceId } = req.body;
+        const deviceId = req.authenticatedDeviceId;
 
-        if (!deviceId || typeof deviceId !== "string") {
-            res.status(400).json({
-                message: "deviceId is required"
+        if (!deviceId) {
+            res.status(401).json({
+                message: "Authenticated device is required"
             });
             return;
         }
@@ -82,11 +89,12 @@ export async function heartbeat(req: Request, res: Response) {
 
 export async function updateStatus(req: Request, res: Response) {
     try {
-        const { deviceId, actuators } = req.body;
+        const deviceId = req.authenticatedDeviceId;
+        const { actuators } = req.body;
 
-        if (!deviceId || typeof deviceId !== "string") {
-            res.status(400).json({
-                message: "deviceId is required"
+        if (!deviceId) {
+            res.status(401).json({
+                message: "Authenticated device is required"
             });
             return;
         }
@@ -133,20 +141,24 @@ export async function updateStatus(req: Request, res: Response) {
 
 export async function getConfig(req: Request, res: Response): Promise<void> {
     try {
-        const deviceId = req.query.deviceId;
+        const deviceId = req.authenticatedDeviceId;
 
-        if (!deviceId || typeof deviceId !== "string") {
-            res.status(400).json({
-                message: "deviceId query parameter is required"
+        if (!deviceId) {
+            res.status(401).json({
+                message: "Authenticated device is required"
             });
             return;
         }
 
-        const actuators = await getDeviceActuatorStates(deviceId);
+        const [actuators, sensors] = await Promise.all([
+            getDeviceActuatorStates(deviceId),
+            getDeviceSensorConfigs(deviceId)
+        ]);
 
         res.json({
             deviceId,
-            actuators
+            actuators,
+            sensors
         });
     } catch (err) {
         console.error(err);

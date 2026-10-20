@@ -47,6 +47,8 @@ export async function getDeviceActuatorStates(
 ): Promise<
   {
     actuatorId: number;
+    name: string;
+    type: "WATER_PUMP" | "VENTILATION_FAN" | "GROW_LIGHT";
     state: "ON" | "OFF";
     controlMode: "AUTO" | "MANUAL";
   }[]
@@ -55,6 +57,8 @@ export async function getDeviceActuatorStates(
     `
       SELECT
         actuators.id AS actuatorId,
+        actuators.name,
+        actuators.type,
         actuators.state,
         actuators.control_mode AS controlMode
       FROM actuators
@@ -68,8 +72,44 @@ export async function getDeviceActuatorStates(
 
   return rows as {
     actuatorId: number;
+    name: string;
+    type: "WATER_PUMP" | "VENTILATION_FAN" | "GROW_LIGHT";
     state: "ON" | "OFF";
     controlMode: "AUTO" | "MANUAL";
+  }[];
+}
+
+export async function getDeviceSensorConfigs(
+  deviceId: string
+): Promise<
+  {
+    sensorId: number;
+    name: string;
+    type: "TEMPERATURE" | "HUMIDITY" | "SOIL_MOISTURE" | "LIGHT";
+    samplingInterval: number;
+  }[]
+> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        sensors.id AS sensorId,
+        sensors.name,
+        sensors.type,
+        sensors.sampling_interval AS samplingInterval
+      FROM sensors
+      INNER JOIN devices
+        ON sensors.device_id = devices.id
+      WHERE devices.device_id = ?
+      ORDER BY sensors.id ASC
+    `,
+    [deviceId]
+  );
+
+  return rows as {
+    sensorId: number;
+    name: string;
+    type: "TEMPERATURE" | "HUMIDITY" | "SOIL_MOISTURE" | "LIGHT";
+    samplingInterval: number;
   }[];
 }
 
