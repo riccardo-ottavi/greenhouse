@@ -1,25 +1,41 @@
-import deviceState from "../state/deviceState.js";
+
+import deviceState, {
+  initializeDeviceState as setDeviceState
+} from "../state/deviceState.js";
 import { executeCommand } from "./commandService.js";
 
-const BACKEND_URL = "http://localhost:3000";
-const DEVICE_ID = "GREENHOUSE_001";
+export const BACKEND_URL =
+  process.env.BACKEND_URL || "http://localhost:3000";
+
+const CONFIGURED_DEVICE_ID =
+  process.env.SIMULATOR_DEVICE_ID || "GREENHOUSE_001";
 
 const API_KEY = process.env.DEVICE_API_KEY;
 
 if (!API_KEY) {
-    throw new Error("DEVICE_API_KEY is not configured");
+  throw new Error("DEVICE_API_KEY is not configured");
 }
 
 export const DEVICE_HEADERS = {
-    "Content-Type": "application/json",
-    "X-API-Key": API_KEY
+  "Content-Type": "application/json",
+  "X-API-Key": API_KEY
 };
 
+function getDeviceId() {
+  if (!deviceState.deviceId) {
+    throw new Error("Device state has not been initialized");
+  }
+
+  return deviceState.deviceId;
+}
+
 export async function getPendingCommands() {
+  const deviceId = getDeviceId();
+
   const response = await fetch(
-    `${BACKEND_URL}/api/device/commands?deviceId=${DEVICE_ID}`,
+    `${BACKEND_URL}/api/device/commands?deviceId=${encodeURIComponent(deviceId)}`,
     {
-        headers: DEVICE_HEADERS
+      headers: DEVICE_HEADERS
     }
   );
 
@@ -34,10 +50,9 @@ export async function getPendingCommands() {
   return data.commands;
 }
 
-export async function sendCommandResult(
-  commandId,
-  success
-) {
+export async function sendCommandResult(commandId, success) {
+  const deviceId = getDeviceId();
+
   const response = await fetch(
     `${BACKEND_URL}/api/device/command-results`,
     {
@@ -45,7 +60,7 @@ export async function sendCommandResult(
       headers: DEVICE_HEADERS,
       body: JSON.stringify({
         commandId,
-        deviceId: DEVICE_ID,
+        deviceId,
         success
       })
     }
@@ -74,34 +89,36 @@ export async function processPendingCommands() {
 }
 
 export async function initializeDeviceState() {
-    const response = await fetch(
-        `${BACKEND_URL}/api/device/config?deviceId=${DEVICE_ID}`,
-        {
-        headers: DEVICE_HEADERS
+  const response = await fetch(
+    `${BACKEND_URL}/api/device/config?deviceId=${encodeURIComponent(CONFIGURED_DEVICE_ID)}`,
+    {
+      headers: DEVICE_HEADERS
     }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to get device configuration: ${response.status}`
     );
+  }
 
-    if (!response.ok) {
-        throw new Error(
-            `Failed to get device configuration: ${response.status}`
-        );
-    }
+  const data = await response.json();
 
-    const data = await response.json();
+  if (
+    typeof data.deviceId !== "string" ||
+    !Array.isArray(data.sensors) ||
+    !Array.isArray(data.actuators)
+  ) {
+    throw new Error("Invalid device configuration received from backend");
+  }
 
-    for (const actuator of data.actuators) {
-        const localActuator =
-            deviceState.actuators[actuator.actuatorId];
+  setDeviceState(data);
 
-        if (!localActuator) {
-            continue;
-        }
-
-        localActuator.state = actuator.state;
-        localActuator.controlMode = actuator.controlMode;
-    }
-
-    console.log("Device state initialized from backend");
+  console.log(
+    `Device ${deviceState.deviceId} initialized: ` +
+    `${data.sensors.length} sensors, ` +
+    `${data.actuators.length} actuators`
+  );
 }
 
 export async function startCommandPolling() {
@@ -124,13 +141,15 @@ export function getActuatorState(actuatorId) {
 }
 
 export async function sendDeviceStatus() {
+  const deviceId = getDeviceId();
+
   const response = await fetch(
     `${BACKEND_URL}/api/device/status`,
     {
       method: "POST",
       headers: DEVICE_HEADERS,
       body: JSON.stringify({
-        deviceId: DEVICE_ID,
+        deviceId,
         actuators: Object.entries(deviceState.actuators).map(
           ([actuatorId, actuator]) => ({
             actuatorId: Number(actuatorId),
@@ -178,13 +197,15 @@ export async function startHeartbeat() {
 }
 
 export async function sendHeartbeat() {
+  const deviceId = getDeviceId();
+
   const response = await fetch(
     `${BACKEND_URL}/api/device/heartbeat`,
     {
       method: "POST",
       headers: DEVICE_HEADERS,
       body: JSON.stringify({
-        deviceId: DEVICE_ID
+        deviceId
       })
     }
   );
@@ -199,26 +220,28 @@ export async function sendHeartbeat() {
 }
 
 export async function sendExternalWeather(weather) {
-    const response = await fetch(
-        `${BACKEND_URL}/api/device/weather`,
-        {
-            method: "POST",
-            headers: DEVICE_HEADERS,
-            body: JSON.stringify({
-                deviceId: DEVICE_ID,
-                temperature: weather.temperature,
-                humidity: weather.humidity,
-                source: weather.source,
-                observedAt: weather.observedAt
-            })
-        }
-    );
+  const deviceId = getDeviceId();
 
-    if (!response.ok) {
-        throw new Error(
-            `Failed to send external weather: ${response.status}`
-        );
+  const response = await fetch(
+    `${BACKEND_URL}/api/device/weather`,
+    {
+      method: "POST",
+      headers: DEVICE_HEADERS,
+      body: JSON.stringify({
+        deviceId,
+        temperature: weather.temperature,
+        humidity: weather.humidity,
+        source: weather.source,
+        observedAt: weather.observedAt
+      })
     }
+  );
 
-    return response.json();
+  if (!response.ok) {
+    throw new Error(
+      `Failed to send external weather: ${response.status}`
+    );
+  }
+
+  return response.json();
 }
