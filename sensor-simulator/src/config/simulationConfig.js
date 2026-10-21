@@ -127,7 +127,7 @@ const simulationConfig = {
         growLight: {
             operatingWindow: {
                 startHour: 6,
-                endHour: 20
+                endHour: 22
             },
             turnOnBelow: 10000,
             turnOffAtOrAbove: 15000

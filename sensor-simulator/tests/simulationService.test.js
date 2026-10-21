@@ -4,6 +4,8 @@ import deviceState, {
     initializeDeviceState
 } from "../src/state/deviceState.js";
 
+
+
 jest.unstable_mockModule(
     "../src/services/deviceService.js",
     () => ({
@@ -29,8 +31,19 @@ jest.unstable_mockModule(
     })
 );
 
+jest.unstable_mockModule(
+    "../src/services/photoperiodService.js",
+    () => ({
+        updatePhotoperiod: jest.fn()
+    })
+);
+
 const { runSimulation } = await import(
     "../src/services/simulationService.js"
+);
+
+const { updatePhotoperiod } = await import(
+    "../src/services/photoperiodService.js"
 );
 
 test("sends readings only for sensors in the device configuration", async () => {
@@ -124,4 +137,86 @@ test("handles a device with no configured sensors", async () => {
     } finally {
         fetchSpy.mockRestore();
     }
+});
+
+
+function configureGrowLight(state, controlMode) {
+    initializeDeviceState({
+        deviceId: "TEST_DEVICE_GROW_LIGHT",
+        sensors: [
+            {
+                sensorId: 3,
+                name: "Light",
+                type: "LIGHT",
+                samplingInterval: 5
+            }
+        ],
+        actuators: [
+            {
+                actuatorId: 1,
+                name: "Grow light",
+                type: "GROW_LIGHT",
+                state,
+                controlMode
+            }
+        ]
+    });
+}
+
+async function runWithMockedFetch() {
+    const fetchSpy = jest
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true })
+        }));
+
+    try {
+        await runSimulation();
+    } finally {
+        fetchSpy.mockRestore();
+    }
+}
+
+test("turns off the grow light when the daily photoperiod limit is reached", async () => {
+    configureGrowLight("ON", "AUTO");
+
+    updatePhotoperiod.mockReset().mockResolvedValue({
+        limitReached: true
+    });
+
+    await runWithMockedFetch();
+
+    expect(deviceState.actuators["1"].state).toBe("OFF");
+    expect(updatePhotoperiod).toHaveBeenCalledWith({
+        lightIsOn: true
+    });
+});
+
+test("keeps the grow light unchanged in MANUAL mode when the limit is reached", async () => {
+    configureGrowLight("ON", "MANUAL");
+
+    updatePhotoperiod.mockReset().mockResolvedValue({
+        limitReached: true
+    });
+
+    await runWithMockedFetch();
+
+    expect(deviceState.actuators["1"].state).toBe("ON");
+    expect(updatePhotoperiod).toHaveBeenCalledWith({
+        lightIsOn: true
+    });
+});
+
+test("turns off the grow light in AUTO mode when photoperiod status is unavailable", async () => {
+    configureGrowLight("ON", "AUTO");
+
+    updatePhotoperiod.mockReset().mockRejectedValue(
+        new Error("Photoperiod state unavailable")
+    );
+
+    await runWithMockedFetch();
+
+    expect(deviceState.actuators["1"].state).toBe("OFF");
 });

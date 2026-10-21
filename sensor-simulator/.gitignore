@@ -2,3 +2,5 @@ node_modules
 .env
 .env.secondary
 data/processed-commands.json
+data/photoperiod-state.json
+data/photoperiod-state.json.tmp
