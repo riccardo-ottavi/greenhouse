@@ -9,6 +9,7 @@ import {
 import { getOutsideWeather } from "./weatherService.js";
 import simulationConfig from "../config/simulationConfig.js";
 import { reconcileSensors } from "../utils/reconcileSensors.js";
+import { updatePhotoperiod } from "./photoperiodService.js";
 
 const WEATHER_SEND_INTERVAL = 60 * 1000;
 
@@ -67,7 +68,23 @@ export async function runSimulation() {
         sensor.currentValue = generateNextValue(sensor, weather);
     }
 
-    applyAutomaticRules();
+    const growLight = getActuatorByType("GROW_LIGHT");
+    let photoperiodStatus = null;
+
+    if (growLight) {
+        try {
+            photoperiodStatus = await updatePhotoperiod({
+                lightIsOn: growLight.state === "ON"
+            });
+        } catch (error) {
+            console.error(
+                "Photoperiod error:",
+                error.message
+            );
+        }
+    }
+
+    applyAutomaticRules(photoperiodStatus);
 
     await Promise.all(
         sensors.map(async (sensor) => {
@@ -351,7 +368,7 @@ async function sendReading(sensor, value) {
     return response.json();
 }
 
-function applyAutomaticRules() {
+function applyAutomaticRules(photoperiodStatus) {
     const pump = getActuatorByType("WATER_PUMP");
     const fan = getActuatorByType("VENTILATION_FAN");
     const growLight = getActuatorByType("GROW_LIGHT");
@@ -397,15 +414,15 @@ function applyAutomaticRules() {
     ) {
         const shouldTurnOn =
             temperatureSensor.currentValue >
-                rules.fan.turnOnAbove.temperature ||
+            rules.fan.turnOnAbove.temperature ||
             humiditySensor.currentValue >
-                rules.fan.turnOnAbove.humidity;
+            rules.fan.turnOnAbove.humidity;
 
         const shouldTurnOff =
             temperatureSensor.currentValue <
-                rules.fan.turnOffBelow.temperature &&
+            rules.fan.turnOffBelow.temperature &&
             humiditySensor.currentValue <
-                rules.fan.turnOffBelow.humidity;
+            rules.fan.turnOffBelow.humidity;
 
         if (shouldTurnOn && fan.state === "OFF") {
             fan.state = "ON";
@@ -424,42 +441,59 @@ function applyAutomaticRules() {
 
     if (
         growLight &&
-        growLight.controlMode === "AUTO" &&
-        lightSensor
+        growLight.controlMode === "AUTO"
     ) {
-        const hour = new Date().getHours();
+        if (!photoperiodStatus) {
+            if (growLight.state === "ON") {
+                growLight.state = "OFF";
 
-        const withinOperatingWindow =
-            hour >= rules.growLight.operatingWindow.startHour &&
-            hour < rules.growLight.operatingWindow.endHour;
-
-        if (!withinOperatingWindow) {
+                console.error(
+                    "Grow light: ON -> OFF (photoperiod status unavailable)"
+                );
+            }
+        } else if (photoperiodStatus.limitReached) {
             if (growLight.state === "ON") {
                 growLight.state = "OFF";
 
                 console.log(
-                    "Grow light: ON -> OFF (outside operating window)"
+                    "Grow light: ON -> OFF (daily photoperiod limit reached)"
                 );
             }
-        } else if (
-            lightSensor.currentValue < rules.growLight.turnOnBelow &&
-            growLight.state === "OFF"
-        ) {
-            growLight.state = "ON";
+        } else if (lightSensor) {
+            const hour = new Date().getHours();
 
-            console.log(
-                `Grow light: OFF -> ON (light: ${lightSensor.currentValue.toFixed(2)} lux)`
-            );
-        } else if (
-            lightSensor.currentValue >=
+            const withinOperatingWindow =
+                hour >= rules.growLight.operatingWindow.startHour &&
+                hour < rules.growLight.operatingWindow.endHour;
+
+            if (!withinOperatingWindow) {
+                if (growLight.state === "ON") {
+                    growLight.state = "OFF";
+
+                    console.log(
+                        "Grow light: ON -> OFF (outside operating window)"
+                    );
+                }
+            } else if (
+                lightSensor.currentValue < rules.growLight.turnOnBelow &&
+                growLight.state === "OFF"
+            ) {
+                growLight.state = "ON";
+
+                console.log(
+                    `Grow light: OFF -> ON (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
+            } else if (
+                lightSensor.currentValue >=
                 rules.growLight.turnOffAtOrAbove &&
-            growLight.state === "ON"
-        ) {
-            growLight.state = "OFF";
+                growLight.state === "ON"
+            ) {
+                growLight.state = "OFF";
 
-            console.log(
-                `Grow light: ON -> OFF (light: ${lightSensor.currentValue.toFixed(2)} lux)`
-            );
+                console.log(
+                    `Grow light: ON -> OFF (light: ${lightSensor.currentValue.toFixed(2)} lux)`
+                );
+            }
         }
     }
 }
