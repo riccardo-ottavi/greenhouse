@@ -1,4 +1,4 @@
-
+import { getSimulationTime } from "./simulationClock.js";
 import deviceState from "../state/deviceState.js";
 import {
     BACKEND_URL,
@@ -42,7 +42,16 @@ function getActuatorByType(type) {
     );
 }
 
-export async function runSimulation() {
+export async function runSimulation(
+    simulationTime = getSimulationTime()
+) {
+    if (
+        !(simulationTime instanceof Date) ||
+        !Number.isFinite(simulationTime.getTime())
+    ) {
+        throw new Error("A valid simulation date is required.");
+    }
+
     initializeSimulationSensors();
 
     const weather = await getOutsideWeather();
@@ -66,7 +75,11 @@ export async function runSimulation() {
     }
 
     for (const sensor of sensors) {
-        sensor.currentValue = generateNextValue(sensor, weather);
+        sensor.currentValue = generateNextValue(
+            sensor,
+            weather,
+            simulationTime
+        );
     }
 
     const growLight = getActuatorByType("GROW_LIGHT");
@@ -75,7 +88,8 @@ export async function runSimulation() {
     if (growLight) {
         try {
             photoperiodStatus = await updatePhotoperiod({
-                lightIsOn: growLight.state === "ON"
+                lightIsOn: growLight.state === "ON",
+                now: simulationTime
             });
         } catch (error) {
             console.error(
@@ -85,14 +99,18 @@ export async function runSimulation() {
         }
     }
 
-    applyAutomaticRules(photoperiodStatus);
+    applyAutomaticRules(
+        photoperiodStatus,
+        simulationTime
+    );
 
     await Promise.all(
         sensors.map(async (sensor) => {
             try {
                 const reading = await sendReading(
                     sensor,
-                    sensor.currentValue
+                    sensor.currentValue,
+                    simulationTime
                 );
 
                 console.log(
@@ -123,7 +141,11 @@ function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
 }
 
-function generateNextValue(sensor, weather) {
+function generateNextValue(
+    sensor,
+    weather,
+    simulationTime
+) {
     switch (sensor.type) {
         case "TEMPERATURE": {
             const fan = getActuatorByType("VENTILATION_FAN");
@@ -239,7 +261,10 @@ function generateNextValue(sensor, weather) {
             const growLight = getActuatorByType("GROW_LIGHT");
             const config = simulationConfig.sensors.light;
 
-            const naturalLight = getNaturalLight(weather);
+            const naturalLight = getNaturalLight(
+                weather,
+                simulationTime
+            );
             let targetLight = naturalLight;
 
             if (growLight?.state === "ON") {
@@ -273,7 +298,11 @@ function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }
 
-async function sendReading(sensor, value) {
+async function sendReading(
+    sensor,
+    value,
+    simulationTime
+) {
     const deviceId = deviceState.deviceId;
     const unit = unitBySensorType[sensor.type];
 
@@ -299,7 +328,7 @@ async function sendReading(sensor, value) {
                         sensorId: sensor.id,
                         value,
                         unit,
-                        timestamp: new Date().toISOString()
+                        timestamp: simulationTime.toISOString()
                     }
                 ]
             })
@@ -315,7 +344,10 @@ async function sendReading(sensor, value) {
     return response.json();
 }
 
-function applyAutomaticRules(photoperiodStatus) {
+function applyAutomaticRules(
+    photoperiodStatus,
+    simulationTime
+) {
     const pump = getActuatorByType("WATER_PUMP");
     const fan = getActuatorByType("VENTILATION_FAN");
     const growLight = getActuatorByType("GROW_LIGHT");
@@ -407,7 +439,13 @@ function applyAutomaticRules(photoperiodStatus) {
                 );
             }
         } else if (lightSensor) {
-            const hour = new Date().getHours();
+            const hour = Number(
+                new Intl.DateTimeFormat("en-GB", {
+                    timeZone: "Europe/Rome",
+                    hour: "2-digit",
+                    hourCycle: "h23"
+                }).format(simulationTime)
+            );
 
             const withinOperatingWindow =
                 hour >= rules.growLight.operatingWindow.startHour &&
