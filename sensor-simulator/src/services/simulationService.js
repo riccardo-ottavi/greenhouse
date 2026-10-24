@@ -10,6 +10,7 @@ import { getOutsideWeather } from "./weatherService.js";
 import simulationConfig from "../config/simulationConfig.js";
 import { reconcileSensors } from "../utils/reconcileSensors.js";
 import { updatePhotoperiod } from "./photoperiodService.js";
+import { getNaturalLight } from "./naturalLightService.js";
 
 const WEATHER_SEND_INTERVAL = 60 * 1000;
 
@@ -120,60 +121,6 @@ export async function runSimulation() {
 
 function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
-}
-
-function getNaturalLight() {
-    const hour = new Date().getHours();
-    const config =
-        simulationConfig.sensors.light.naturalLight;
-
-    if (
-        hour >= config.night.startHour ||
-        hour < config.night.endHour
-    ) {
-        return config.night.value;
-    }
-
-    if (
-        hour >= config.morning.startHour &&
-        hour < config.morning.endHour
-    ) {
-        return interpolateLight(hour, config.morning);
-    }
-
-    if (
-        hour >= config.lateMorning.startHour &&
-        hour < config.lateMorning.endHour
-    ) {
-        return interpolateLight(hour, config.lateMorning);
-    }
-
-    if (
-        hour >= config.afternoon.startHour &&
-        hour < config.afternoon.endHour
-    ) {
-        return interpolateLight(hour, config.afternoon);
-    }
-
-    if (
-        hour >= config.evening.startHour &&
-        hour < config.evening.endHour
-    ) {
-        return interpolateLight(hour, config.evening);
-    }
-
-    return interpolateLight(hour, config.sunset);
-}
-
-function interpolateLight(hour, period) {
-    const progress =
-        (hour - period.startHour) /
-        (period.endHour - period.startHour);
-
-    return (
-        period.startValue +
-        (period.endValue - period.startValue) * progress
-    );
 }
 
 function generateNextValue(sensor, weather) {
@@ -292,7 +239,7 @@ function generateNextValue(sensor, weather) {
             const growLight = getActuatorByType("GROW_LIGHT");
             const config = simulationConfig.sensors.light;
 
-            const naturalLight = getNaturalLight();
+            const naturalLight = getNaturalLight(weather);
             let targetLight = naturalLight;
 
             if (growLight?.state === "ON") {
