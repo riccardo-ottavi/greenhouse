@@ -23,11 +23,12 @@ export async function getOutsideWeather() {
     }
 
     const url =
-        `https://api.open-meteo.com/v1/forecast` +
-        `?latitude=${LATITUDE}` +
-        `&longitude=${LONGITUDE}` +
-        `&current=temperature_2m,relative_humidity_2m` +
-        `&timezone=auto`;
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${LATITUDE}` +
+    `&longitude=${LONGITUDE}` +
+    `&current=temperature_2m,relative_humidity_2m` +
+    `&daily=sunrise,sunset` +
+    `&timezone=auto`;
 
     try {
         const response = await fetch(url);
@@ -39,6 +40,9 @@ export async function getOutsideWeather() {
         }
 
         const data = await response.json();
+        const sunrise = data.daily?.sunrise?.[0] ?? null;
+        const sunset = data.daily?.sunset?.[0] ?? null;
+        const timezone = data.timezone;
 
         const temperature = data.current?.temperature_2m;
         const humidity = data.current?.relative_humidity_2m;
@@ -57,8 +61,11 @@ export async function getOutsideWeather() {
         cachedWeather = {
             temperature,
             humidity,
+            sunrise,
+            sunset,
+            timezone,
             source: "OPEN_METEO",
-            observedAt: new Date().toISOString()
+            observedAt: new Date().toISOString(),
         };
 
         cachedAt = Date.now();

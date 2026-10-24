@@ -102,7 +102,8 @@ const simulationConfig = {
                     endHour: 21,
                     startValue: 5000,
                     endValue: 0
-                }
+                },
+                daylightMax: 30000
             }
         }
     },
