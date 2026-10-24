@@ -91,7 +91,6 @@ test("does not count time elapsed while the simulator was stopped", async () => 
 
     expect(beforeRestart.accumulatedSeconds).toBe(60);
 
-    // A new service instance represents a simulator restart.
     const restartedSession = createService();
 
     const afterRestart = await restartedSession.updatePhotoperiod({
