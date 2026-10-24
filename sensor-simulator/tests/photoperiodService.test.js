@@ -232,3 +232,100 @@ test("initializes a missing state file with zero accumulated time", async () => 
 
     await expect(fs.access(statePath)).resolves.toBeUndefined();
 });
+
+
+test("accumulates multiple separate periods when the light is on", async () => {
+    const service = createService();
+    const start = new Date(2026, 0, 15, 10, 0, 0);
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: start
+    });
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, 30)
+    });
+
+    const firstOff = await service.updatePhotoperiod({
+        lightIsOn: false,
+        now: addSeconds(start, 50)
+    });
+
+    expect(firstOff.accumulatedSeconds).toBe(50);
+
+    const stillOff = await service.updatePhotoperiod({
+        lightIsOn: false,
+        now: addSeconds(start, 100)
+    });
+
+    expect(stillOff.accumulatedSeconds).toBe(50);
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, 150)
+    });
+
+    const secondOn = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, 180)
+    });
+
+    expect(secondOn.accumulatedSeconds).toBe(80);
+
+    const secondOff = await service.updatePhotoperiod({
+        lightIsOn: false,
+        now: addSeconds(start, 200)
+    });
+
+    expect(secondOff.accumulatedSeconds).toBe(100);
+});
+
+test("reaches twelve hours across separate ON periods", async () => {
+    const service = createService();
+    const start = new Date(2026, 0, 15, 8, 0, 0);
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: start
+    });
+
+    const beforeLimit = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, MAX_DAILY_SECONDS - 60)
+    });
+
+    expect(beforeLimit.accumulatedSeconds).toBe(
+        MAX_DAILY_SECONDS - 60
+    );
+    expect(beforeLimit.limitReached).toBe(false);
+
+    const almostThere = await service.updatePhotoperiod({
+        lightIsOn: false,
+        now: addSeconds(start, MAX_DAILY_SECONDS - 30)
+    });
+
+    expect(almostThere.accumulatedSeconds).toBe(
+        MAX_DAILY_SECONDS - 30
+    );
+
+    const afterOffPeriod = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, MAX_DAILY_SECONDS + 30)
+    });
+
+    expect(afterOffPeriod.accumulatedSeconds).toBe(
+        MAX_DAILY_SECONDS - 30
+    );
+    expect(afterOffPeriod.limitReached).toBe(false);
+
+    const atLimit = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: addSeconds(start, MAX_DAILY_SECONDS + 60)
+    });
+
+    expect(atLimit.accumulatedSeconds).toBe(MAX_DAILY_SECONDS);
+    expect(atLimit.remainingSeconds).toBe(0);
+    expect(atLimit.limitReached).toBe(true);
+});
