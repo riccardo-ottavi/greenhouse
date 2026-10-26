@@ -89,7 +89,6 @@ test("stopHeartbeat clears the heartbeat interval", async () => {
 
     await jest.advanceTimersByTimeAsync(20000);
 
-    // No additional heartbeat should be sent after stopping.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 });
 });

@@ -110,7 +110,7 @@ test("does not count time elapsed while the simulator was stopped", async () => 
 
 test("resets the accumulated time when the local calendar day changes", async () => {
     const service = createService();
-    const beforeMidnight = new Date(2026, 0, 15, 23, 59, 30);
+    const beforeMidnight = new Date("2026-01-15T22:59:30Z");
 
     await service.updatePhotoperiod({
         lightIsOn: true,
@@ -124,7 +124,7 @@ test("resets the accumulated time when the local calendar day changes", async ()
 
     expect(beforeDayChange.accumulatedSeconds).toBe(20);
 
-    const afterMidnight = new Date(2026, 0, 16, 0, 0, 10);
+    const afterMidnight = new Date("2026-01-15T23:00:10Z");
 
     const nextDay = await service.updatePhotoperiod({
         lightIsOn: true,
@@ -137,16 +137,62 @@ test("resets the accumulated time when the local calendar day changes", async ()
     expect(nextDay.limitReached).toBe(false);
 });
 
-test("counts only the new day's time when the first update is after midnight", async () => {
+test("resets the daily limit at midnight in Europe/Rome", async () => {
     const service = createService();
-    const beforeMidnight = new Date(2026, 0, 15, 23, 59, 0);
+
+    const beforeMidnight = new Date("2026-01-15T22:59:30Z");
 
     await service.updatePhotoperiod({
         lightIsOn: true,
         now: beforeMidnight
     });
 
-    const afterMidnight = new Date(2026, 0, 16, 0, 5, 0);
+    const afterMidnight = new Date("2026-01-15T23:00:10Z");
+
+    const status = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: afterMidnight
+    });
+
+    expect(status.date).toBe("2026-01-16");
+    expect(status.accumulatedSeconds).toBe(10);
+    expect(status.remainingSeconds).toBe(MAX_DAILY_SECONDS - 10);
+    expect(status.limitReached).toBe(false);
+});
+
+test("resets the daily limit at midnight during daylight saving time", async () => {
+    const service = createService();
+
+    const beforeMidnight = new Date("2026-03-29T21:59:30Z");
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: beforeMidnight
+    });
+
+    const afterMidnight = new Date("2026-03-29T22:00:10Z");
+
+    const status = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: afterMidnight
+    });
+
+    expect(status.date).toBe("2026-03-30");
+    expect(status.accumulatedSeconds).toBe(10);
+    expect(status.remainingSeconds).toBe(MAX_DAILY_SECONDS - 10);
+    expect(status.limitReached).toBe(false);
+});
+
+test("counts only the new day's time when the first update is after midnight", async () => {
+    const service = createService();
+   const beforeMidnight = new Date("2026-01-15T22:59:00Z");
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: beforeMidnight
+    });
+
+    const afterMidnight = new Date("2026-01-15T23:05:00Z");
 
     const nextDay = await service.updatePhotoperiod({
         lightIsOn: true,
@@ -161,18 +207,18 @@ test("counts only the new day's time when the first update is after midnight", a
 
 test("does not count the previous day after a status check at midnight", async () => {
     const service = createService();
-    const beforeMidnight = new Date(2026, 0, 15, 23, 59, 0);
+    const beforeMidnight = new Date("2026-01-15T22:59:00Z");
 
     await service.updatePhotoperiod({
         lightIsOn: true,
         now: beforeMidnight
     });
 
-    const atMidnight = new Date(2026, 0, 16, 0, 0, 0);
+    const atMidnight = new Date("2026-01-15T23:00:00Z");
 
     await service.getPhotoperiodStatus(atMidnight);
 
-    const fiveMinutesLater = new Date(2026, 0, 16, 0, 5, 0);
+    const fiveMinutesLater = new Date("2026-01-15T23:05:00Z");
 
     const status = await service.updatePhotoperiod({
         lightIsOn: true,
