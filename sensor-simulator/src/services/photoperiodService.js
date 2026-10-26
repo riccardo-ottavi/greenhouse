@@ -11,14 +11,71 @@ const DEFAULT_STATE_PATH = path.resolve(
     "../../data/photoperiod-state.json"
 );
 
+const TIME_ZONE = "Europe/Rome";
+
 export const MAX_DAILY_SECONDS = 12 * 60 * 60;
 
-function getLocalDateKey(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+function getRomeDateTimeParts(date) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+    }).formatToParts(date);
 
-    return `${year}-${month}-${day}`;
+    return Object.fromEntries(
+        parts.map(({ type, value }) => [type, value])
+    );
+}
+
+function getLocalDateKey(date = new Date()) {
+    const parts = getRomeDateTimeParts(date);
+
+    return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function getRomeMidnightTimestamp(date) {
+    const parts = getRomeDateTimeParts(date);
+
+    const targetTimestamp = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        0,
+        0,
+        0
+    );
+
+    let timestamp = targetTimestamp;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const localParts = getRomeDateTimeParts(
+            new Date(timestamp)
+        );
+
+        const localTimestamp = Date.UTC(
+            Number(localParts.year),
+            Number(localParts.month) - 1,
+            Number(localParts.day),
+            Number(localParts.hour),
+            Number(localParts.minute),
+            Number(localParts.second)
+        );
+
+        const difference = localTimestamp - targetTimestamp;
+
+        if (difference === 0) {
+            break;
+        }
+
+        timestamp -= difference;
+    }
+
+    return timestamp;
 }
 
 function createInitialState(date = new Date()) {
@@ -36,12 +93,12 @@ function isValidDateKey(value) {
     }
 
     const [year, month, day] = value.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = new Date(Date.UTC(year, month - 1, day));
 
     return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
     );
 }
 
@@ -196,11 +253,7 @@ export function createPhotoperiodService({
 
             sessionInitialized = true;
         } else if (dayChanged) {
-            const midnight = new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate()
-            ).getTime();
+            const midnight = getRomeMidnightTimestamp(now);
 
             const previouslyOn = state.lastObservedLightIsOn;
 

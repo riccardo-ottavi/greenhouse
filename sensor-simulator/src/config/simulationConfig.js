@@ -1,4 +1,9 @@
 const simulationConfig = {
+    location: {
+        latitude: 43.9,
+        longitude: 12.9,
+        timezone: "Europe/Rome"
+    },
     sensors: {
         temperature: {
             initialValue: 22,

@@ -1,27 +1,33 @@
 
 import simulationConfig from "../config/simulationConfig.js";
+import { getSolarTimes } from "./solarTimesService.js";
 
 const DEFAULT_TIMEZONE = "Europe/Rome";
 
-export function getNaturalLight(
-    weather = {},
-    now = new Date()
-) {
+export function getNaturalLight(_weather = {}, now = new Date()) {
     const config =
         simulationConfig.sensors.light.naturalLight;
 
-    const timezone =
-        typeof weather.timezone === "string" &&
-        weather.timezone.length > 0
-            ? weather.timezone
-            : DEFAULT_TIMEZONE;
+    const { latitude, longitude, timezone } =
+        simulationConfig.location;
 
     const current = getLocalTime(now, timezone);
-    const sunrise = parseSolarTime(weather.sunrise);
-    const sunset = parseSolarTime(weather.sunset);
+
+    if (current === null) {
+        return config.night.value;
+    }
+
+    const solarTimes = getSolarTimes(
+        now,
+        latitude,
+        longitude,
+        timezone
+    );
+
+    const sunrise = parseSolarTime(solarTimes.sunrise);
+    const sunset = parseSolarTime(solarTimes.sunset);
 
     const hasValidSolarTimes =
-        current !== null &&
         sunrise !== null &&
         sunset !== null &&
         sunrise.date === current.date &&
@@ -30,25 +36,29 @@ export function getNaturalLight(
         Number.isFinite(config.daylightMax) &&
         config.daylightMax >= 0;
 
-    if (hasValidSolarTimes) {
-        if (
-            current.minutes <= sunrise.minutes ||
-            current.minutes >= sunset.minutes
-        ) {
-            return config.night.value;
-        }
-
-        const progress =
-            (current.minutes - sunrise.minutes) /
-            (sunset.minutes - sunrise.minutes);
-
-        return (
-            config.daylightMax *
-            Math.sin(Math.PI * progress)
+    if (!hasValidSolarTimes) {
+        return getFallbackNaturalLight(
+            config,
+            now,
+            timezone
         );
     }
 
-    return getFallbackNaturalLight(config, now, timezone);
+    if (
+        current.minutes <= sunrise.minutes ||
+        current.minutes >= sunset.minutes
+    ) {
+        return config.night.value;
+    }
+
+    const progress =
+        (current.minutes - sunrise.minutes) /
+        (sunset.minutes - sunrise.minutes);
+
+    return (
+        config.daylightMax *
+        Math.sin(Math.PI * progress)
+    );
 }
 
 function getLocalTime(date, timezone) {
