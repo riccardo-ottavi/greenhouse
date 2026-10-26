@@ -11,7 +11,7 @@ const DEFAULT_STATE_PATH = path.resolve(
     "../../data/simulation-clock-state.json"
 );
 
-export const SIMULATED_MINUTE_MS = 60 * 1000;
+export const SIMULATION_SPEEDS = [1, 12];
 
 function validateDate(date) {
     if (
@@ -19,6 +19,15 @@ function validateDate(date) {
         !Number.isFinite(date.getTime())
     ) {
         throw new Error("A valid simulation date is required.");
+    }
+}
+
+function validateSpeed(speed) {
+    if (!SIMULATION_SPEEDS.includes(speed)) {
+        throw new Error(
+            `Invalid simulation speed: ${speed}. ` +
+            "Supported speeds are 1 and 12."
+        );
     }
 }
 
@@ -34,13 +43,21 @@ function isValidState(state) {
 
     const date = new Date(state.currentTime);
 
-    return (
-        Number.isFinite(date.getTime()) &&
-        date.toISOString() === state.currentTime
-    );
+    if (
+        !Number.isFinite(date.getTime()) ||
+        date.toISOString() !== state.currentTime
+    ) {
+        return false;
+    }
+
+    if (!Object.hasOwn(state, "speed")) {
+        return true;
+    }
+
+    return SIMULATION_SPEEDS.includes(state.speed);
 }
 
-async function saveState(statePath, date) {
+async function saveState(statePath, date, speed) {
     await fs.mkdir(path.dirname(statePath), {
         recursive: true
     });
@@ -50,7 +67,10 @@ async function saveState(statePath, date) {
     await fs.writeFile(
         temporaryPath,
         JSON.stringify(
-            { currentTime: date.toISOString() },
+            {
+                currentTime: date.toISOString(),
+                speed
+            },
             null,
             4
         ),
@@ -91,32 +111,49 @@ async function loadState(statePath) {
         );
     }
 
-    return new Date(state.currentTime);
+    if (!Object.hasOwn(state, "speed")) {
+        return {
+            currentTime: state.currentTime,
+            speed: 12
+        };
+    }
+
+    return state;
 }
 
 export function createSimulationClock({
     statePath = DEFAULT_STATE_PATH,
-    nowProvider = () => new Date()
+    nowProvider = () => new Date(),
+    speed = Number(process.env.SIMULATION_SPEED ?? 1)
 } = {}) {
+    validateSpeed(speed);
+
     let currentTime = null;
+    let lastRealTime = null;
 
     async function initializeSimulationClock() {
         if (currentTime !== null) {
             return getSimulationTime();
         }
 
-        const savedTime = await loadState(statePath);
+        const realNow = nowProvider();
+        validateDate(realNow);
 
-        if (savedTime !== null) {
-            currentTime = savedTime;
-            return getSimulationTime();
-        }
+        const savedState = await loadState(statePath);
 
-        const initialTime = nowProvider();
-        validateDate(initialTime);
+        const canResume =
+            speed === 12 &&
+            savedState !== null &&
+            savedState.speed === speed;
 
-        await saveState(statePath, initialTime);
-        currentTime = new Date(initialTime.getTime());
+        const initialTime = canResume
+            ? new Date(savedState.currentTime)
+            : new Date(realNow.getTime());
+
+        await saveState(statePath, initialTime, speed);
+
+        currentTime = initialTime;
+        lastRealTime = new Date(realNow.getTime());
 
         return getSimulationTime();
     }
@@ -131,27 +168,78 @@ export function createSimulationClock({
         return new Date(currentTime.getTime());
     }
 
-    async function advanceSimulationClock() {
-        if (currentTime === null) {
+    async function advanceSimulationClock(
+        elapsedSimulatedMs
+    ) {
+        if (currentTime === null || lastRealTime === null) {
             throw new Error(
                 "Simulation clock has not been initialized."
             );
         }
 
-        const nextTime = new Date(
-            currentTime.getTime() + SIMULATED_MINUTE_MS
+        const realNow = nowProvider();
+        validateDate(realNow);
+
+        const elapsedRealMs = Math.max(
+            0,
+            realNow.getTime() - lastRealTime.getTime()
         );
 
-        await saveState(statePath, nextTime);
+        const elapsedToAdvanceMs =
+            elapsedSimulatedMs === undefined
+                ? elapsedRealMs * speed
+                : elapsedSimulatedMs;
+
+        if (
+            !Number.isFinite(elapsedToAdvanceMs) ||
+            elapsedToAdvanceMs < 0
+        ) {
+            throw new Error(
+                "Elapsed simulated time must be a non-negative number."
+            );
+        }
+
+        const elapsedRealToAdvanceMs =
+            elapsedToAdvanceMs / speed;
+
+        const nextTime = new Date(
+            currentTime.getTime() + elapsedToAdvanceMs
+        );
+
         currentTime = nextTime;
 
+        lastRealTime = new Date(
+            lastRealTime.getTime() + elapsedRealToAdvanceMs
+        );
+
+        await saveState(statePath, nextTime, speed);
+
         return getSimulationTime();
+    }
+
+    function getLastElapsedSimulatedMs() {
+        if (currentTime === null || lastRealTime === null) {
+            throw new Error(
+                "Simulation clock has not been initialized."
+            );
+        }
+
+        const realNow = nowProvider();
+        validateDate(realNow);
+
+        const elapsedRealMs = Math.max(
+            0,
+            realNow.getTime() - lastRealTime.getTime()
+        );
+
+        return elapsedRealMs * speed;
     }
 
     return {
         initializeSimulationClock,
         getSimulationTime,
-        advanceSimulationClock
+        advanceSimulationClock,
+        getLastElapsedSimulatedMs
     };
 }
 
@@ -165,3 +253,6 @@ export const getSimulationTime =
 
 export const advanceSimulationClock =
     defaultClock.advanceSimulationClock;
+
+export const getLastElapsedSimulatedMs =
+    defaultClock.getLastElapsedSimulatedMs;

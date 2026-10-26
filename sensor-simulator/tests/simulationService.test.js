@@ -424,3 +424,116 @@ test("turns off the grow light at 20:00", async () => {
 
     expect(result.state).toBe("OFF");
 });
+
+test("does not retain partial sensor updates when a simulation cycle fails", async () => {
+    const { default: simulationConfig } = await import(
+        "../src/config/simulationConfig.js"
+    );
+
+    const originalTemperatureInitialValue =
+        simulationConfig.sensors.temperature.initialValue;
+
+    const originalHumidityInitialValue =
+        simulationConfig.sensors.humidity.initialValue;
+
+    const simulationTime = new Date(
+        "2026-10-23T10:00:00.000Z"
+    );
+
+    const temperatureSensorId = 501;
+    const humiditySensorId = 502;
+
+    let randomCalls = 0;
+    let fetchSpy;
+
+    try {
+        simulationConfig.sensors.temperature.initialValue = 30;
+        simulationConfig.sensors.humidity.initialValue = 50;
+
+        getSimulationTime.mockReturnValue(simulationTime);
+
+        initializeDeviceState({
+            deviceId: "TEST_DEVICE_PARTIAL_FAILURE",
+            sensors: [
+                {
+                    sensorId: temperatureSensorId,
+                    name: "Temperature",
+                    type: "TEMPERATURE",
+                    samplingInterval: 5
+                },
+                {
+                    sensorId: humiditySensorId,
+                    name: "Humidity",
+                    type: "HUMIDITY",
+                    samplingInterval: 5
+                }
+            ],
+            actuators: []
+        });
+
+        getNaturalLight.mockReturnValue(10000);
+
+        updatePhotoperiod
+            .mockReset()
+            .mockResolvedValue({ limitReached: false });
+
+        const randomSpy = jest
+            .spyOn(Math, "random")
+            .mockImplementation(() => {
+                randomCalls += 1;
+
+                if (randomCalls === 2) {
+                    throw new Error(
+                        "Simulated failure during sensor calculation"
+                    );
+                }
+
+                return 0.5;
+            });
+
+        try {
+            await expect(
+                runSimulation(simulationTime, 60000)
+            ).rejects.toThrow(
+                "Simulated failure during sensor calculation"
+            );
+        } finally {
+            randomSpy.mockRestore();
+        }
+
+        fetchSpy = jest
+            .spyOn(globalThis, "fetch")
+            .mockImplementation(async () => ({
+                ok: true,
+                status: 200,
+                json: async () => ({ success: true })
+            }));
+
+        await runSimulation(simulationTime, 0);
+
+        const readingCalls = fetchSpy.mock.calls.filter(
+            ([url]) =>
+                String(url).endsWith("/api/device/readings")
+        );
+
+        const sentReadings = readingCalls.flatMap(
+            ([, options]) => JSON.parse(options.body).readings
+        );
+
+        const temperatureReading = sentReadings.find(
+            (reading) =>
+                reading.sensorId === temperatureSensorId
+        );
+
+        expect(temperatureReading).toBeDefined();
+        expect(temperatureReading.value).toBe(30);
+    } finally {
+        fetchSpy?.mockRestore();
+
+        simulationConfig.sensors.temperature.initialValue =
+            originalTemperatureInitialValue;
+
+        simulationConfig.sensors.humidity.initialValue =
+            originalHumidityInitialValue;
+    }
+});

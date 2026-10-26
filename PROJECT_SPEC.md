@@ -113,6 +113,31 @@ The simulator will operate using simulation cycles, with each cycle representing
 
 Each cycle will calculate the new environmental state based on the previous state, the external environment, the current actuator states, and a small amount of natural variability. Environmental values will therefore change progressively rather than instantaneously.
 
+### Simulation Clock and Time Scaling
+
+The sensor simulator supports two simulation speeds, configured through the `SIMULATION_SPEED` environment variable:
+
+- `1` (default): real-time mode. Simulation time is synchronized with the current real-world time.
+- `12`: accelerated mode. One second of real time advances simulation time by twelve seconds.
+
+The simulator runs a technical cycle every five seconds of real time. Simulated time advances according to the actual elapsed wall-clock time multiplied by the configured simulation speed; it is not advanced by a fixed amount per cycle.
+
+Environmental sensor dynamics are scaled according to elapsed simulated time. This keeps environmental changes consistent across the supported simulation speeds.
+
+The following operations remain tied to real time and are not accelerated:
+
+- Device heartbeat and command polling.
+- Network requests and backend communication.
+- External weather retrieval and weather-cache expiration.
+
+The simulation uses the `Europe/Rome` time zone for local-time-dependent behavior, including natural-light calculations and the grow-light operating schedule.
+
+The grow light operates automatically only between 06:00 and 20:00 local time and has a maximum cumulative ON duration of 12 simulated hours per local calendar day.
+
+In accelerated mode, the simulator may advance its internal date and time, but external weather data still represents current weather from Open-Meteo rather than historical weather for the simulated timestamp. Weather conditions therefore do not constitute a historical weather replay.
+
+The simulation clock state is persisted to disk. In real-time mode, initialization synchronizes the clock with the current real-world time. In accelerated mode, a compatible saved clock state can be resumed after a restart. No simulated time elapses while the simulator is stopped. Switching simulation speeds resets the clock to the current real-world time.
+
 ### Temperature
 
 The greenhouse temperature will be represented as an internal environmental variable influenced primarily by the outside temperature, the ventilation fan, and the grow light.

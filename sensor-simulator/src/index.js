@@ -4,7 +4,7 @@ import "dotenv/config";
 import {
     initializeDeviceState,
     startCommandPolling,
-    startHeartbeat
+    startHeartbeat,
 } from "./services/deviceService.js";
 
 import { runSimulation } from "./services/simulationService.js";
@@ -13,7 +13,8 @@ import { runSimulationCycle } from "./services/simulationLoop.js";
 import {
     initializeSimulationClock,
     getSimulationTime,
-    advanceSimulationClock
+    advanceSimulationClock,
+    getLastElapsedSimulatedMs
 } from "./services/simulationClock.js";
 
 const SIMULATION_INTERVAL_MS = 5000;
@@ -37,7 +38,8 @@ async function startDevice() {
                 await runSimulationCycle({
                     runSimulation,
                     getSimulationTime,
-                    advanceSimulationClock
+                    advanceSimulationClock,
+                    getLastElapsedSimulatedMs
                 });
             } catch (error) {
                 console.error(

@@ -42,14 +42,26 @@ function getActuatorByType(type) {
     );
 }
 
+const DEFAULT_SIMULATED_MINUTE_MS = 60 * 1000;
+
 export async function runSimulation(
-    simulationTime = getSimulationTime()
+    simulationTime = getSimulationTime(),
+    elapsedSimulatedMs = DEFAULT_SIMULATED_MINUTE_MS
 ) {
     if (
         !(simulationTime instanceof Date) ||
         !Number.isFinite(simulationTime.getTime())
     ) {
         throw new Error("A valid simulation date is required.");
+    }
+
+    if (
+        !Number.isFinite(elapsedSimulatedMs) ||
+        elapsedSimulatedMs < 0
+    ) {
+        throw new Error(
+            "Elapsed simulated time must be a non-negative number."
+        );
     }
 
     initializeSimulationSensors();
@@ -74,12 +86,21 @@ export async function runSimulation(
         }
     }
 
-    for (const sensor of sensors) {
-        sensor.currentValue = generateNextValue(
-            sensor,
+    const elapsedSimulatedMinutes =
+        elapsedSimulatedMs / DEFAULT_SIMULATED_MINUTE_MS;
+
+    const updatedSensorValues = sensors.map((sensor) => ({
+        sensor,
+        currentValue: generateNextValue(
+            { ...sensor },
             weather,
-            simulationTime
-        );
+            simulationTime,
+            elapsedSimulatedMinutes
+        )
+    }));
+
+    for (const { sensor, currentValue } of updatedSensorValues) {
+        sensor.currentValue = currentValue;
     }
 
     const growLight = getActuatorByType("GROW_LIGHT");
@@ -141,11 +162,25 @@ function randomVariation(min, max) {
     return Math.random() * (max - min) + min;
 }
 
+function scaleCoefficient(coefficient, elapsedMinutes) {
+    return 1 - Math.pow(1 - coefficient, elapsedMinutes);
+}
+
+function scaledRandomVariation(min, max, elapsedMinutes) {
+    return randomVariation(min, max) *
+        Math.sqrt(elapsedMinutes);
+}
+
 function generateNextValue(
     sensor,
     weather,
-    simulationTime
+    simulationTime,
+    elapsedMinutes
 ) {
+    if (elapsedMinutes === 0) {
+        return sensor.currentValue;
+    }
+
     switch (sensor.type) {
         case "TEMPERATURE": {
             const fan = getActuatorByType("VENTILATION_FAN");
@@ -156,25 +191,30 @@ function generateNextValue(
                 weather.temperature - sensor.currentValue;
 
             sensor.currentValue +=
-                temperatureDifference * config.outsideInfluence;
+                temperatureDifference *
+                scaleCoefficient(
+                    config.outsideInfluence,
+                    elapsedMinutes
+                );
 
             if (fan?.state === "ON") {
                 sensor.currentValue -= randomVariation(
                     config.fanEffect.min,
                     config.fanEffect.max
-                );
+                ) * elapsedMinutes;
             }
 
             if (growLight?.state === "ON") {
                 sensor.currentValue += randomVariation(
                     config.growLightEffect.min,
                     config.growLightEffect.max
-                );
+                ) * elapsedMinutes;
             }
 
-            sensor.currentValue += randomVariation(
+            sensor.currentValue += scaledRandomVariation(
                 config.randomVariation.min,
-                config.randomVariation.max
+                config.randomVariation.max,
+                elapsedMinutes
             );
 
             return clamp(
@@ -194,32 +234,37 @@ function generateNextValue(
                 weather.humidity - sensor.currentValue;
 
             sensor.currentValue +=
-                humidityDifference * config.outsideInfluence;
+                humidityDifference *
+                scaleCoefficient(
+                    config.outsideInfluence,
+                    elapsedMinutes
+                );
 
             if (pump?.state === "ON") {
                 sensor.currentValue += randomVariation(
                     config.pumpEffect.min,
                     config.pumpEffect.max
-                );
+                ) * elapsedMinutes;
             }
 
             if (fan?.state === "ON") {
                 sensor.currentValue -= randomVariation(
                     config.fanEffect.min,
                     config.fanEffect.max
-                );
+                ) * elapsedMinutes;
             }
 
             if (growLight?.state === "ON") {
                 sensor.currentValue -= randomVariation(
                     config.growLightEffect.min,
                     config.growLightEffect.max
-                );
+                ) * elapsedMinutes;
             }
 
-            sensor.currentValue += randomVariation(
+            sensor.currentValue += scaledRandomVariation(
                 config.randomVariation.min,
-                config.randomVariation.max
+                config.randomVariation.max,
+                elapsedMinutes
             );
 
             return clamp(
@@ -238,16 +283,17 @@ function generateNextValue(
                 sensor.currentValue += randomVariation(
                     config.pumpEffect.min,
                     config.pumpEffect.max
-                );
+                ) * elapsedMinutes;
             } else {
                 sensor.currentValue += randomVariation(
                     config.naturalDrying.min,
                     config.naturalDrying.max
-                );
+                ) * elapsedMinutes;
             }
 
             if (growLight?.state === "ON") {
-                sensor.currentValue -= config.growLightEffect;
+                sensor.currentValue -=
+                    config.growLightEffect * elapsedMinutes;
             }
 
             return clamp(
@@ -265,6 +311,7 @@ function generateNextValue(
                 weather,
                 simulationTime
             );
+
             let targetLight = naturalLight;
 
             if (growLight?.state === "ON") {
@@ -275,11 +322,16 @@ function generateNextValue(
                 targetLight - sensor.currentValue;
 
             sensor.currentValue +=
-                lightDifference * config.responseRate;
+                lightDifference *
+                scaleCoefficient(
+                    config.responseRate,
+                    elapsedMinutes
+                );
 
-            sensor.currentValue += randomVariation(
+            sensor.currentValue += scaledRandomVariation(
                 config.randomVariation.min,
-                config.randomVariation.max
+                config.randomVariation.max,
+                elapsedMinutes
             );
 
             return clamp(

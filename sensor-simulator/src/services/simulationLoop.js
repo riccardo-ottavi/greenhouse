@@ -1,14 +1,19 @@
-
 export async function runSimulationCycle({
     runSimulation,
     getSimulationTime,
     advanceSimulationClock,
+    getLastElapsedSimulatedMs = () => 0,
     logger = console
 }) {
     const simulationTime = getSimulationTime();
+    const elapsedSimulatedMs =
+        getLastElapsedSimulatedMs();
 
     try {
-        await runSimulation(simulationTime);
+        await runSimulation(
+            simulationTime,
+            elapsedSimulatedMs
+        );
     } catch (error) {
         logger.error(
             "Simulation cycle error:",
@@ -18,5 +23,7 @@ export async function runSimulationCycle({
         return;
     }
 
-    await advanceSimulationClock();
+    await advanceSimulationClock(
+        elapsedSimulatedMs
+    );
 }
