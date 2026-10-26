@@ -36,8 +36,11 @@ afterEach(async () => {
     });
 });
 
-function createService() {
-    return createPhotoperiodService({ statePath });
+function createService(options = {}) {
+    return createPhotoperiodService({
+        statePath,
+        ...options
+    });
 }
 
 function addSeconds(date, seconds) {
@@ -373,4 +376,36 @@ test("reaches twelve hours across separate ON periods", async () => {
     expect(atLimit.accumulatedSeconds).toBe(MAX_DAILY_SECONDS);
     expect(atLimit.remainingSeconds).toBe(0);
     expect(atLimit.limitReached).toBe(true);
+});
+
+test("uses the configured timezone to reset the daily photoperiod", async () => {
+    const service = createService({
+        timeZone: "Europe/London"
+    });
+
+    const beforeMidnight = new Date("2026-01-15T22:59:30Z");
+
+    await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: beforeMidnight
+    });
+
+    const beforeLondonMidnight = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: new Date("2026-01-15T23:00:10Z")
+    });
+
+    expect(beforeLondonMidnight.date).toBe("2026-01-15");
+    expect(beforeLondonMidnight.accumulatedSeconds).toBe(40);
+
+    const afterLondonMidnight = await service.updatePhotoperiod({
+        lightIsOn: true,
+        now: new Date("2026-01-16T00:00:10Z")
+    });
+
+    expect(afterLondonMidnight.date).toBe("2026-01-16");
+    expect(afterLondonMidnight.accumulatedSeconds).toBe(10);
+    expect(afterLondonMidnight.remainingSeconds).toBe(
+        MAX_DAILY_SECONDS - 10
+    );
 });

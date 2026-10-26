@@ -1,7 +1,8 @@
-
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import simulationConfig from "../config/simulationConfig.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,13 +12,13 @@ const DEFAULT_STATE_PATH = path.resolve(
     "../../data/photoperiod-state.json"
 );
 
-const TIME_ZONE = "Europe/Rome";
+const DEFAULT_TIME_ZONE = simulationConfig.location.timezone;
 
 export const MAX_DAILY_SECONDS = 12 * 60 * 60;
 
-function getRomeDateTimeParts(date) {
+function getLocalDateTimeParts(date, timeZone) {
     const parts = new Intl.DateTimeFormat("en-GB", {
-        timeZone: TIME_ZONE,
+        timeZone,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -32,14 +33,14 @@ function getRomeDateTimeParts(date) {
     );
 }
 
-function getLocalDateKey(date = new Date()) {
-    const parts = getRomeDateTimeParts(date);
+function getLocalDateKey(date = new Date(), timeZone) {
+    const parts = getLocalDateTimeParts(date, timeZone);
 
     return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-function getRomeMidnightTimestamp(date) {
-    const parts = getRomeDateTimeParts(date);
+function getLocalMidnightTimestamp(date, timeZone) {
+    const parts = getLocalDateTimeParts(date, timeZone);
 
     const targetTimestamp = Date.UTC(
         Number(parts.year),
@@ -53,8 +54,9 @@ function getRomeMidnightTimestamp(date) {
     let timestamp = targetTimestamp;
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
-        const localParts = getRomeDateTimeParts(
-            new Date(timestamp)
+        const localParts = getLocalDateTimeParts(
+            new Date(timestamp),
+            timeZone
         );
 
         const localTimestamp = Date.UTC(
@@ -78,9 +80,9 @@ function getRomeMidnightTimestamp(date) {
     return timestamp;
 }
 
-function createInitialState(date = new Date()) {
+function createInitialState(date = new Date(), timeZone) {
     return {
-        date: getLocalDateKey(date),
+        date: getLocalDateKey(date, timeZone),
         accumulatedSeconds: 0,
         lastAccountedAt: null,
         lastObservedLightIsOn: false
@@ -144,7 +146,7 @@ async function saveState(state, statePath) {
     await fs.rename(temporaryPath, statePath);
 }
 
-async function loadState(statePath, now) {
+async function loadState(statePath, now, timeZone) {
     let content;
 
     try {
@@ -154,7 +156,7 @@ async function loadState(statePath, now) {
             throw error;
         }
 
-        const initialState = createInitialState(now);
+        const initialState = createInitialState(now, timeZone);
         await saveState(initialState, statePath);
 
         return initialState;
@@ -181,8 +183,8 @@ async function loadState(statePath, now) {
     return state;
 }
 
-function resetIfNewDay(state, now) {
-    const currentDate = getLocalDateKey(now);
+function resetIfNewDay(state, now, timeZone) {
+    const currentDate = getLocalDateKey(now, timeZone);
 
     if (state.date !== currentDate) {
         state.date = currentDate;
@@ -230,7 +232,8 @@ function buildStatus(state) {
 }
 
 export function createPhotoperiodService({
-    statePath = DEFAULT_STATE_PATH
+    statePath = DEFAULT_STATE_PATH,
+    timeZone = DEFAULT_TIME_ZONE
 } = {}) {
     let sessionInitialized = false;
 
@@ -244,8 +247,8 @@ export function createPhotoperiodService({
             throw new Error("lightIsOn must be a boolean.");
         }
 
-        const state = await loadState(statePath, now);
-        const dayChanged = resetIfNewDay(state, now);
+        const state = await loadState(statePath, now, timeZone);
+        const dayChanged = resetIfNewDay(state, now, timeZone);
 
         if (!sessionInitialized) {
             state.lastAccountedAt = now.getTime();
@@ -253,7 +256,7 @@ export function createPhotoperiodService({
 
             sessionInitialized = true;
         } else if (dayChanged) {
-            const midnight = getRomeMidnightTimestamp(now);
+            const midnight = getLocalMidnightTimestamp(now, timeZone);
 
             const previouslyOn = state.lastObservedLightIsOn;
 
@@ -277,8 +280,8 @@ export function createPhotoperiodService({
     async function getPhotoperiodStatus(now = new Date()) {
         validateNow(now);
 
-        const state = await loadState(statePath, now);
-        const dayChanged = resetIfNewDay(state, now);
+        const state = await loadState(statePath, now, timeZone);
+        const dayChanged = resetIfNewDay(state, now, timeZone);
 
         if (dayChanged) {
             state.lastAccountedAt = now.getTime();

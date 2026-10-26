@@ -441,7 +441,7 @@ function applyAutomaticRules(
         } else if (lightSensor) {
             const hour = Number(
                 new Intl.DateTimeFormat("en-GB", {
-                    timeZone: "Europe/Rome",
+                    timeZone: simulationConfig.location.timezone,
                     hour: "2-digit",
                     hourCycle: "h23"
                 }).format(simulationTime)
