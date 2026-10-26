@@ -4,3 +4,4 @@ node_modules
 data/processed-commands.json
 data/photoperiod-state.json
 data/photoperiod-state.json.tmp
+/data/simulation-clock-state.json

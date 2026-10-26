@@ -121,10 +121,10 @@ export async function initializeDeviceState() {
   );
 }
 
-export async function startCommandPolling() {
+export function startCommandPolling() {
   console.log("Command polling started");
 
-  setInterval(async () => {
+  const intervalId = setInterval(async () => {
     try {
       await processPendingCommands();
     } catch (error) {
@@ -134,6 +134,11 @@ export async function startCommandPolling() {
       );
     }
   }, 2000);
+
+  return function stopCommandPolling() {
+    clearInterval(intervalId);
+    console.log("Command polling stopped");
+  };
 }
 
 export function getActuatorState(actuatorId) {
@@ -170,20 +175,11 @@ export async function sendDeviceStatus() {
   return response.json();
 }
 
-export async function startHeartbeat() {
+
+export function startHeartbeat() {
   console.log("Heartbeat started");
 
-  try {
-    await sendHeartbeat();
-    console.log("Heartbeat sent");
-  } catch (error) {
-    console.error(
-      "Heartbeat error:",
-      error.message
-    );
-  }
-
-  setInterval(async () => {
+  async function sendHeartbeatSafely() {
     try {
       await sendHeartbeat();
       console.log("Heartbeat sent");
@@ -193,8 +189,20 @@ export async function startHeartbeat() {
         error.message
       );
     }
+  }
+
+  void sendHeartbeatSafely();
+
+  const intervalId = setInterval(() => {
+    void sendHeartbeatSafely();
   }, 10000);
+
+  return function stopHeartbeat() {
+    clearInterval(intervalId);
+    console.log("Heartbeat stopped");
+  };
 }
+
 
 export async function sendHeartbeat() {
   const deviceId = getDeviceId();

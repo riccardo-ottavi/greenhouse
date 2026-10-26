@@ -1,6 +1,5 @@
+import simulationConfig from "../config/simulationConfig.js";
 
-const LATITUDE = 43.9;
-const LONGITUDE = 12.9;
 
 const CACHE_DURATION = 10 * 60 * 1000;
 
@@ -24,8 +23,8 @@ export async function getOutsideWeather() {
 
     const url =
     `https://api.open-meteo.com/v1/forecast` +
-    `?latitude=${LATITUDE}` +
-    `&longitude=${LONGITUDE}` +
+    `?latitude=${simulationConfig.location.latitude}` +
+    `&longitude=${simulationConfig.location.longitude}` +
     `&current=temperature_2m,relative_humidity_2m` +
     `&daily=sunrise,sunset` +
     `&timezone=auto`;

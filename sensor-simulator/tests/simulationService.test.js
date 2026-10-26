@@ -6,6 +6,10 @@ import deviceState, {
 
 const sendDeviceStatus = jest.fn();
 
+const getSimulationTime = jest.fn().mockReturnValue(
+    new Date("2026-10-23T10:00:00.000Z")
+);
+
 jest.unstable_mockModule(
     "../src/services/deviceService.js",
     () => ({
@@ -42,6 +46,13 @@ jest.unstable_mockModule(
     "../src/services/naturalLightService.js",
     () => ({
         getNaturalLight: jest.fn()
+    })
+);
+
+jest.unstable_mockModule(
+    "../src/services/simulationClock.js",
+    () => ({
+        getSimulationTime
     })
 );
 
@@ -207,8 +218,6 @@ async function runGrowLightRuleTest({
     const originalInitialValue =
         simulationConfig.sensors.light.initialValue;
 
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(2026, 9, 23, hour, 0, 0));
 
     const randomSpy = jest
         .spyOn(Math, "random")
@@ -216,6 +225,12 @@ async function runGrowLightRuleTest({
 
     try {
         simulationConfig.sensors.light.initialValue = initialLight;
+
+        getSimulationTime.mockReturnValue(
+            new Date(
+                `2026-10-23T${String(hour).padStart(2, "0")}:00:00+02:00`
+            )
+        );
 
         configureGrowLight(
             state,
@@ -239,9 +254,39 @@ async function runGrowLightRuleTest({
             originalInitialValue;
 
         randomSpy.mockRestore();
-        jest.useRealTimers();
     }
 }
+
+
+test("passes the supplied simulation time to the photoperiod service", async () => {
+    const simulationTime = new Date("2026-10-23T10:00:00.000Z");
+
+    configureGrowLight("ON", "AUTO");
+
+    updatePhotoperiod
+        .mockReset()
+        .mockResolvedValue({ limitReached: false });
+
+    const fetchSpy = jest
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true })
+        }));
+
+    try {
+        await runSimulation(simulationTime);
+
+        expect(updatePhotoperiod).toHaveBeenCalledWith({
+            lightIsOn: true,
+            now: simulationTime
+        });
+    } finally {
+        fetchSpy.mockRestore();
+    }
+});
+
 
 test("turns off the grow light when the daily photoperiod limit is reached", async () => {
     configureGrowLight("ON", "AUTO");
@@ -261,7 +306,8 @@ test("turns off the grow light when the daily photoperiod limit is reached", asy
     expect(deviceState.actuators["1"].state).toBe("OFF");
 
     expect(updatePhotoperiod).toHaveBeenCalledWith({
-        lightIsOn: true
+        lightIsOn: true,
+        now: expect.any(Date)
     });
 
     expect(sendDeviceStatus).toHaveBeenCalledTimes(1);
@@ -289,7 +335,8 @@ test("keeps the grow light unchanged in MANUAL mode when the limit is reached", 
 
     expect(deviceState.actuators["1"].state).toBe("ON");
     expect(updatePhotoperiod).toHaveBeenCalledWith({
-        lightIsOn: true
+        lightIsOn: true,
+        now: expect.any(Date)
     });
 });
 
@@ -376,4 +423,117 @@ test("turns off the grow light at 20:00", async () => {
     });
 
     expect(result.state).toBe("OFF");
+});
+
+test("does not retain partial sensor updates when a simulation cycle fails", async () => {
+    const { default: simulationConfig } = await import(
+        "../src/config/simulationConfig.js"
+    );
+
+    const originalTemperatureInitialValue =
+        simulationConfig.sensors.temperature.initialValue;
+
+    const originalHumidityInitialValue =
+        simulationConfig.sensors.humidity.initialValue;
+
+    const simulationTime = new Date(
+        "2026-10-23T10:00:00.000Z"
+    );
+
+    const temperatureSensorId = 501;
+    const humiditySensorId = 502;
+
+    let randomCalls = 0;
+    let fetchSpy;
+
+    try {
+        simulationConfig.sensors.temperature.initialValue = 30;
+        simulationConfig.sensors.humidity.initialValue = 50;
+
+        getSimulationTime.mockReturnValue(simulationTime);
+
+        initializeDeviceState({
+            deviceId: "TEST_DEVICE_PARTIAL_FAILURE",
+            sensors: [
+                {
+                    sensorId: temperatureSensorId,
+                    name: "Temperature",
+                    type: "TEMPERATURE",
+                    samplingInterval: 5
+                },
+                {
+                    sensorId: humiditySensorId,
+                    name: "Humidity",
+                    type: "HUMIDITY",
+                    samplingInterval: 5
+                }
+            ],
+            actuators: []
+        });
+
+        getNaturalLight.mockReturnValue(10000);
+
+        updatePhotoperiod
+            .mockReset()
+            .mockResolvedValue({ limitReached: false });
+
+        const randomSpy = jest
+            .spyOn(Math, "random")
+            .mockImplementation(() => {
+                randomCalls += 1;
+
+                if (randomCalls === 2) {
+                    throw new Error(
+                        "Simulated failure during sensor calculation"
+                    );
+                }
+
+                return 0.5;
+            });
+
+        try {
+            await expect(
+                runSimulation(simulationTime, 60000)
+            ).rejects.toThrow(
+                "Simulated failure during sensor calculation"
+            );
+        } finally {
+            randomSpy.mockRestore();
+        }
+
+        fetchSpy = jest
+            .spyOn(globalThis, "fetch")
+            .mockImplementation(async () => ({
+                ok: true,
+                status: 200,
+                json: async () => ({ success: true })
+            }));
+
+        await runSimulation(simulationTime, 0);
+
+        const readingCalls = fetchSpy.mock.calls.filter(
+            ([url]) =>
+                String(url).endsWith("/api/device/readings")
+        );
+
+        const sentReadings = readingCalls.flatMap(
+            ([, options]) => JSON.parse(options.body).readings
+        );
+
+        const temperatureReading = sentReadings.find(
+            (reading) =>
+                reading.sensorId === temperatureSensorId
+        );
+
+        expect(temperatureReading).toBeDefined();
+        expect(temperatureReading.value).toBe(30);
+    } finally {
+        fetchSpy?.mockRestore();
+
+        simulationConfig.sensors.temperature.initialValue =
+            originalTemperatureInitialValue;
+
+        simulationConfig.sensors.humidity.initialValue =
+            originalHumidityInitialValue;
+    }
 });

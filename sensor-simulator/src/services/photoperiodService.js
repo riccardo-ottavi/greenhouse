@@ -1,7 +1,8 @@
-
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import simulationConfig from "../config/simulationConfig.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,19 +12,77 @@ const DEFAULT_STATE_PATH = path.resolve(
     "../../data/photoperiod-state.json"
 );
 
+const DEFAULT_TIME_ZONE = simulationConfig.location.timezone;
+
 export const MAX_DAILY_SECONDS = 12 * 60 * 60;
 
-function getLocalDateKey(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+function getLocalDateTimeParts(date, timeZone) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+    }).formatToParts(date);
 
-    return `${year}-${month}-${day}`;
+    return Object.fromEntries(
+        parts.map(({ type, value }) => [type, value])
+    );
 }
 
-function createInitialState(date = new Date()) {
+function getLocalDateKey(date = new Date(), timeZone) {
+    const parts = getLocalDateTimeParts(date, timeZone);
+
+    return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function getLocalMidnightTimestamp(date, timeZone) {
+    const parts = getLocalDateTimeParts(date, timeZone);
+
+    const targetTimestamp = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        0,
+        0,
+        0
+    );
+
+    let timestamp = targetTimestamp;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const localParts = getLocalDateTimeParts(
+            new Date(timestamp),
+            timeZone
+        );
+
+        const localTimestamp = Date.UTC(
+            Number(localParts.year),
+            Number(localParts.month) - 1,
+            Number(localParts.day),
+            Number(localParts.hour),
+            Number(localParts.minute),
+            Number(localParts.second)
+        );
+
+        const difference = localTimestamp - targetTimestamp;
+
+        if (difference === 0) {
+            break;
+        }
+
+        timestamp -= difference;
+    }
+
+    return timestamp;
+}
+
+function createInitialState(date = new Date(), timeZone) {
     return {
-        date: getLocalDateKey(date),
+        date: getLocalDateKey(date, timeZone),
         accumulatedSeconds: 0,
         lastAccountedAt: null,
         lastObservedLightIsOn: false
@@ -36,12 +95,12 @@ function isValidDateKey(value) {
     }
 
     const [year, month, day] = value.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = new Date(Date.UTC(year, month - 1, day));
 
     return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
     );
 }
 
@@ -87,7 +146,7 @@ async function saveState(state, statePath) {
     await fs.rename(temporaryPath, statePath);
 }
 
-async function loadState(statePath, now) {
+async function loadState(statePath, now, timeZone) {
     let content;
 
     try {
@@ -97,7 +156,7 @@ async function loadState(statePath, now) {
             throw error;
         }
 
-        const initialState = createInitialState(now);
+        const initialState = createInitialState(now, timeZone);
         await saveState(initialState, statePath);
 
         return initialState;
@@ -124,8 +183,8 @@ async function loadState(statePath, now) {
     return state;
 }
 
-function resetIfNewDay(state, now) {
-    const currentDate = getLocalDateKey(now);
+function resetIfNewDay(state, now, timeZone) {
+    const currentDate = getLocalDateKey(now, timeZone);
 
     if (state.date !== currentDate) {
         state.date = currentDate;
@@ -173,7 +232,8 @@ function buildStatus(state) {
 }
 
 export function createPhotoperiodService({
-    statePath = DEFAULT_STATE_PATH
+    statePath = DEFAULT_STATE_PATH,
+    timeZone = DEFAULT_TIME_ZONE
 } = {}) {
     let sessionInitialized = false;
 
@@ -187,8 +247,8 @@ export function createPhotoperiodService({
             throw new Error("lightIsOn must be a boolean.");
         }
 
-        const state = await loadState(statePath, now);
-        const dayChanged = resetIfNewDay(state, now);
+        const state = await loadState(statePath, now, timeZone);
+        const dayChanged = resetIfNewDay(state, now, timeZone);
 
         if (!sessionInitialized) {
             state.lastAccountedAt = now.getTime();
@@ -196,11 +256,7 @@ export function createPhotoperiodService({
 
             sessionInitialized = true;
         } else if (dayChanged) {
-            const midnight = new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate()
-            ).getTime();
+            const midnight = getLocalMidnightTimestamp(now, timeZone);
 
             const previouslyOn = state.lastObservedLightIsOn;
 
@@ -224,8 +280,8 @@ export function createPhotoperiodService({
     async function getPhotoperiodStatus(now = new Date()) {
         validateNow(now);
 
-        const state = await loadState(statePath, now);
-        const dayChanged = resetIfNewDay(state, now);
+        const state = await loadState(statePath, now, timeZone);
+        const dayChanged = resetIfNewDay(state, now, timeZone);
 
         if (dayChanged) {
             state.lastAccountedAt = now.getTime();
