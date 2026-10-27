@@ -44,18 +44,6 @@ Operational status describes the health and availability of the sensor and does 
 
 ### Environmental Warnings and Alerts
 
-Environmental warnings and alerts represent abnormal environmental conditions derived from valid sensor telemetry. They are separate from sensor operational status. A sensor can therefore remain ONLINE while reporting a value that triggers an environmental warning.
-
-Examples of environmental warnings and alerts include:
-
-- HIGH_TEMPERATURE
-
-- HIGH_HUMIDITY
-
-- LOW_SOIL_MOISTURE
-
-- LOW_LIGHT
-
 Environmental alerts represent abnormal environmental conditions detected from valid sensor readings. They are separate from sensor operational status. A sensor can therefore remain ONLINE while reporting a value that triggers an environmental alert.
 
 The system currently supports the following environmental alert types:
@@ -805,6 +793,18 @@ The backend should not depend on whether the Device is implemented as a simulato
 
 ---
 
+### API Authentication and Authorization Boundaries
+
+Authentication and authorization are separate requirements.
+
+The Device API uses device-specific API-key authentication. The backend validates the supplied credentials and associates device operations with the authenticated device.
+
+This protection does not automatically apply to other backend routes. In particular, actuator command creation, reading ingestion, and other operational write endpoints must enforce their own appropriate authorization rules.
+
+Before public deployment, every API route must be classified as public read-only, authenticated device communication, or protected operational access. Anonymous clients must not be able to modify actuator states, change control modes, inject readings, or modify configuration.
+
+The frontend must never contain device API keys or other server-side credentials.
+
 ## 8. Persistence
 
 The system will persist in the database the information required to maintain the identity and configuration of the greenhouse components, their current operational state, historical sensor measurements, and the commands exchanged between the backend and the Device.
@@ -938,31 +938,25 @@ An active alert is resolved when a subsequent valid reading returns to the norma
 
 The backend is responsible for creating, updating, and resolving alerts. The frontend does not calculate environmental thresholds; it retrieves active alerts from the backend and displays them alongside the relevant sensors.
 
-### Information That Will Not Initially Be Persisted
+Information That Will Not Initially Be Persisted
 
 The following information will not initially be stored as independent database records:
 
-```text
+Individual heartbeat history
 
-NOT PERSISTED INITIALLY
+Automatic control rules
 
-├── Individual heartbeat history
+Hardware-specific information
 
-├── Automatic control rules
+Simulator-specific parameters
 
-├── Hardware-specific information
+The system maintains the most recent device communication time through last_seen, without storing each heartbeat as a separate historical event.
 
-└── Simulator-specific parameters
+Automatic control rules remain part of the device's runtime logic. Automatic actuator changes do not create persistent Commands, although the resulting actuator state is synchronized with the backend and persisted.
 
-```
+Hardware-specific implementation details and simulator runtime parameters remain outside the backend domain model.
 
-The system will not initially persist every individual heartbeat received from the Device. Instead, the backend will maintain the latest communication time through lastSeen.
-
-A complete heartbeat history is not necessary for the initial scope of the project and would introduce additional data without providing an immediate functional benefit.
-
-The automatic control rules will not initially be stored as independent database entities.
-
-The rules defined for the greenhouse, such as activating the water pump when soil moisture falls below a threshold or activating the ventilation fan when temperature or humidity becomes too high, will remain part of the Device's runtime control logic.
+Environmental alerts are persisted. They are associated with the relevant sensor and retain their status, triggering value, triggering timestamp, and resolution timestamp when applicable. Resolved alerts remain in the database; the current dashboard displays active alerts only.
 
 Automatic actuator changes therefore do not generate persistent Commands in the commands table. The resulting actuator state will instead be persisted as the current state of the Actuator.
 
@@ -1401,3 +1395,47 @@ Before public deployment:
 A dedicated authenticated operator interface may be introduced in a later phase. A separate interactive demo environment may also be considered so visitors can experiment with actuator controls without modifying the primary monitoring environment.
 
 These extensions are not prerequisites for the initial public, read-only portfolio demo.
+
+## Verification Status and Known Limitations
+
+### Validation performed
+
+The following checks have been performed during development:
+
+| Area | Result |
+|---|---|
+| Frontend production build | PASS |
+| Frontend lint | FAIL — one `react-hooks/set-state-in-effect` error in `HomePage.tsx` |
+| Simulator automated tests | PASS — 69 tests |
+| Backend TypeScript check (`npx tsc --noEmit`) | PASS |
+| Backend end-to-end tests | NOT RUN in the latest review |
+
+The backend end-to-end tests were not run during the latest review because the test fixture can delete records from the configured test database. They must be executed only against a verified, isolated test database.
+
+These results describe the checks performed during the latest review and must not be interpreted as proof that every application workflow has been verified.
+
+### Known implementation gaps
+
+The following issues have been identified and require further work or verification:
+
+- **Actuator command authorization:** the command-creation API must be protected against unauthorized requests before public deployment.
+- **Sensor sampling intervals:** the simulator currently sends readings on every five-second simulation cycle rather than consistently respecting each sensor's configured sampling interval.
+- **Telemetry reliability:** failed reading or status requests can be logged without causing the corresponding simulation cycle to be retried.
+- **Reading persistence:** individual reading creation and current sensor-state updates are not consistently covered by one atomic transaction. Batch device-reading persistence uses a transaction.
+- **Environmental alert concurrency:** concurrent readings may create duplicate active alerts unless the database and application enforce the required uniqueness guarantees.
+- **History API scalability:** reading-history endpoints do not yet provide bounded, paginated results.
+- **Simulator request handling:** asynchronous polling can overlap, requests lack explicit timeouts, and command-journal updates require stronger protection against concurrent writes.
+- **Frontend error handling:** failures when loading dashboard data are not consistently communicated to the user.
+- **Frontend navigation:** some sidebar entries are not implemented as accessible navigation links.
+- **Deployment configuration:** CORS and frontend asset sizes require review before production deployment.
+- **Frontend validation:** API responses are trusted through TypeScript casts rather than validated at runtime, and automated frontend tests are not yet configured.
+
+### Public deployment status
+
+The project is not yet ready for unrestricted public deployment with actuator controls enabled.
+
+Before deployment, the backend must enforce authorization for all operational write endpoints, preserve device authentication and ownership checks, and expose only explicitly approved read-only information to anonymous visitors.
+
+The device API's API-key authentication and the simulator's command-idempotency mechanism have been implemented and tested. They do not, by themselves, establish that every backend write endpoint is protected.
+
+The project should be considered a working prototype until the outstanding security, reliability, and validation tasks have been addressed and verified.
