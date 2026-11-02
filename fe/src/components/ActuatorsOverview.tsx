@@ -1,4 +1,6 @@
 
+import { Link } from "react-router-dom";
+
 import fanIcon from "../assets/icons/fan.svg";
 import growLightIcon from "../assets/icons/bulb.svg";
 import waterPumpIcon from "../assets/icons/water-pump.svg";
@@ -35,32 +37,38 @@ export default function ActuatorsOverview({
             {actuators.length > 0 ? (
                 <ul className="actuator-list">
                     {actuators.map((actuator) => (
-                        <li className="actuator-row" key={actuator.id}>
-                            <img
-                                className="actuator-icon"
-                                src={actuatorIcons[actuator.type]}
-                                alt=""
-                            />
+                        <li key={actuator.id}>
+                            <Link
+                                to={`/devices/${actuator.deviceId}/actuators/${actuator.id}`}
+                                className="actuator-row"
+                                aria-label={`View details for ${actuator.name}`}
+                            >
+                                <img
+                                    className="actuator-icon"
+                                    src={actuatorIcons[actuator.type]}
+                                    alt=""
+                                />
 
-                            <div className="actuator-info">
-                                <strong>{actuator.name}</strong>
+                                <div className="actuator-info">
+                                    <strong>{actuator.name}</strong>
 
-                                <span>
-                                    {actuator.type.replaceAll("_", " ")}
-                                </span>
-
-                                <div className="actuator-status">
-                                    <span
-                                        className={`actuator-state actuator-state-${actuator.state.toLowerCase()}`}
-                                    >
-                                        {actuator.state}
+                                    <span>
+                                        {actuator.type.replaceAll("_", " ")}
                                     </span>
 
-                                    <span className="actuator-mode">
-                                        {actuator.controlMode}
-                                    </span>
+                                    <div className="actuator-status">
+                                        <span
+                                            className={`actuator-state actuator-state-${actuator.state.toLowerCase()}`}
+                                        >
+                                            {actuator.state}
+                                        </span>
+
+                                        <span className="actuator-mode">
+                                            {actuator.controlMode}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+                            </Link>
                         </li>
                     ))}
                 </ul>
