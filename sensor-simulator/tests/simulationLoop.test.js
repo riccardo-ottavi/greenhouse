@@ -461,7 +461,6 @@ test("does not double-count elapsed time when saving the clock fails after a suc
 
         expect(clock.getLastElapsedSimulatedMs()).toBe(0);
 
-        // The second save should succeed and persist the updated clock.
         const savedState = JSON.parse(
             await fs.readFile(statePath, "utf-8")
         );

@@ -1,6 +1,8 @@
+
 import request from "supertest";
 
 import app from "../src/app.js";
+import { db } from "../src/database/connection.js";
 
 import {
     resetTestDatabase,
@@ -30,18 +32,41 @@ describe("Readings API", () => {
                 item.type === "TEMPERATURE"
         );
 
+        expect(sensor).toBeDefined();
+
         const createResponse = await request(app)
-            .post("/api/readings")
+            .post("/api/device/readings")
+            .set("X-API-Key", "test-device-api-key")
             .send({
-                sensorId: sensor.id,
-                value: 23.5,
-                unit: "°C",
-                timestamp: new Date().toISOString()
+                deviceId: "GREENHOUSE_TEST",
+                readings: [
+                    {
+                        sensorId: sensor.id,
+                        value: 23.5,
+                        unit: "°C",
+                        timestamp: new Date().toISOString()
+                    }
+                ]
             });
 
         expect(createResponse.status).toBe(201);
 
-        const readingId = createResponse.body.id;
+        const [rows] = await db.query(
+            `
+            SELECT id
+            FROM readings
+            WHERE sensor_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+            `,
+            [sensor.id]
+        );
+
+        const readings = rows as { id: number }[];
+
+        expect(readings).toHaveLength(1);
+
+        const readingId = readings[0].id;
 
         const response = await request(app)
             .get(`/api/readings/${readingId}`);
@@ -67,7 +92,7 @@ describe("Readings API", () => {
         });
     });
 
-    it("POST /api/readings should update the sensor current value", async () => {
+    it("POST /api/readings should return 404 without creating a reading", async () => {
         const sensorsResponse = await request(app)
             .get("/api/sensors");
 
@@ -76,7 +101,9 @@ describe("Readings API", () => {
                 item.type === "TEMPERATURE"
         );
 
-        const createResponse = await request(app)
+        expect(sensor).toBeDefined();
+
+        const response = await request(app)
             .post("/api/readings")
             .send({
                 sensorId: sensor.id,
@@ -85,74 +112,55 @@ describe("Readings API", () => {
                 timestamp: new Date().toISOString()
             });
 
-        expect(createResponse.status).toBe(201);
+        expect(response.status).toBe(404);
+
+        const [readingRows] = await db.query(
+            "SELECT COUNT(*) AS count FROM readings"
+        );
+
+        const readings = readingRows as { count: number }[];
+
+        expect(Number(readings[0].count)).toBe(0);
 
         const sensorResponse = await request(app)
             .get(`/api/sensors/${sensor.id}`);
 
         expect(sensorResponse.status).toBe(200);
+        expect(sensorResponse.body.currentValue).toBe(22);
+    });
 
+    it("POST /api/device/readings should update the sensor current value", async () => {
+        const sensorsResponse = await request(app)
+            .get("/api/sensors");
+
+        const sensor = sensorsResponse.body.find(
+            (item: { type: string }) =>
+                item.type === "TEMPERATURE"
+        );
+
+        expect(sensor).toBeDefined();
+
+        const response = await request(app)
+            .post("/api/device/readings")
+            .set("X-API-Key", "test-device-api-key")
+            .send({
+                deviceId: "GREENHOUSE_TEST",
+                readings: [
+                    {
+                        sensorId: sensor.id,
+                        value: 26.5,
+                        unit: "°C",
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            });
+
+        expect(response.status).toBe(201);
+
+        const sensorResponse = await request(app)
+            .get(`/api/sensors/${sensor.id}`);
+
+        expect(sensorResponse.status).toBe(200);
         expect(sensorResponse.body.currentValue).toBe(26.5);
-    });
-
-    it("POST /api/readings should return 404 for an unknown sensor", async () => {
-        const response = await request(app)
-            .post("/api/readings")
-            .send({
-                sensorId: 999999,
-                value: 25,
-                unit: "°C",
-                timestamp: new Date().toISOString()
-            });
-
-        expect(response.status).toBe(404);
-
-        expect(response.body).toEqual({
-            message: "Sensor not found"
-        });
-    });
-    it("POST /api/readings should reject a temperature outside the valid range", async () => {
-        const sensorsResponse = await request(app)
-            .get("/api/sensors");
-
-        const sensor = sensorsResponse.body.find(
-            (item: { type: string }) =>
-                item.type === "TEMPERATURE"
-        );
-
-        const response = await request(app)
-            .post("/api/readings")
-            .send({
-                sensorId: sensor.id,
-                value: 55,
-                unit: "°C",
-                timestamp: new Date().toISOString()
-            });
-
-        expect(response.status).toBe(400);
-    });
-    it("POST /api/readings should reject an invalid unit for the sensor type", async () => {
-        const sensorsResponse = await request(app)
-            .get("/api/sensors");
-
-        const sensor = sensorsResponse.body.find(
-            (item: { type: string }) =>
-                item.type === "TEMPERATURE"
-        );
-
-        const response = await request(app)
-            .post("/api/readings")
-            .send({
-                sensorId: sensor.id,
-                value: 25,
-                unit: "%",
-                timestamp: new Date().toISOString()
-            });
-
-        expect(response.status).toBe(400);
-
-        expect(response.body).toEqual({
-            message: "Unit does not match sensor type"
-        });
     });
 });
