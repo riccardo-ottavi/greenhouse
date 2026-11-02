@@ -4,20 +4,13 @@ import SensorsPage from './pages/SensorsPage';
 import SensorDetailPage from './pages/SensorDetailPage';
 import ActuatorDetailPage from './pages/ActuatorDetailPage';
 import ActuatorsPage from './pages/ActuatorsPage';
+import TrendsPage from './pages/TrendsPage';
+import AlertsPage from './pages/AlertsPage';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import DefaultLayout from './layouts/DefaultLayout';
 import DeviceHomePage from './pages/DeviceHomePage';
 import HomePage from './pages/HomePage';
-
-function ComingSoonPage({ title }: { title: string }) {
-  return (
-    <main className="page">
-      <h1>{title}</h1>
-      <p>This section is currently under development.</p>
-    </main>
-  );
-}
 
 function NotFoundPage() {
   return (
@@ -56,14 +49,15 @@ function App() {
             path="devices/:id/actuators/:actuatorId"
             element={<ActuatorDetailPage />}
           />
+
           <Route
             path="devices/:id/trends"
-            element={<ComingSoonPage title="Trends" />}
+            element={<TrendsPage />}
           />
 
           <Route
             path="devices/:id/alerts"
-            element={<ComingSoonPage title="Alerts" />}
+            element={<AlertsPage />}
           />
 
           <Route path="*" element={<NotFoundPage />} />
