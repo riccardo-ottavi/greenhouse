@@ -60,6 +60,8 @@ async function startDevice() {
             "Device startup error:",
             error.message
         );
+
+        process.exitCode = 1;
     }
 }
 

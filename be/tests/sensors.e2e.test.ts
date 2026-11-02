@@ -1,3 +1,4 @@
+
 import request from "supertest";
 
 import app from "../src/app.js";
@@ -70,34 +71,43 @@ describe("Sensors API", () => {
     });
 
     it("GET /api/sensors/:id should return an environmental alert", async () => {
-    const listResponse = await request(app)
-        .get("/api/sensors");
+        const listResponse = await request(app)
+            .get("/api/sensors");
 
-    const sensor = listResponse.body.find(
-        (item: { type: string }) =>
-            item.type === "SOIL_MOISTURE"
-    );
+        const sensor = listResponse.body.find(
+            (item: { type: string }) =>
+                item.type === "SOIL_MOISTURE"
+        );
 
-    await request(app)
-        .post("/api/readings")
-        .send({
-            sensorId: sensor.id,
-            value: 15,
-            unit: "%",
-            timestamp: new Date().toISOString()
+        expect(sensor).toBeDefined();
+
+        const readingResponse = await request(app)
+            .post("/api/device/readings")
+            .set("X-API-Key", "test-device-api-key")
+            .send({
+                deviceId: "GREENHOUSE_TEST",
+                readings: [
+                    {
+                        sensorId: sensor.id,
+                        value: 15,
+                        unit: "%",
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            });
+
+        expect(readingResponse.status).toBe(201);
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensor.id}`);
+
+        expect(response.status).toBe(200);
+
+        expect(response.body).toMatchObject({
+            id: sensor.id,
+            type: "SOIL_MOISTURE",
+            currentValue: 15,
+            alert: "LOW_SOIL_MOISTURE"
         });
-
-    const response = await request(app)
-        .get(`/api/sensors/${sensor.id}`);
-
-    expect(response.status).toBe(200);
-
-    expect(response.body).toMatchObject({
-        id: sensor.id,
-        type: "SOIL_MOISTURE",
-        currentValue: 15,
-        alert: "LOW_SOIL_MOISTURE"
     });
-});
-
 });

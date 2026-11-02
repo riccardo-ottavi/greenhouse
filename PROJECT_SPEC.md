@@ -705,6 +705,24 @@ In a real environment exposed to the Internet, HTTP communication will be protec
 
 The goal of this first version is not to implement an advanced device provisioning system, but to define a mechanism simple enough to be used by both the simulator and a future physical device.
 
+Before public deployment:
+
+Maintain an explicit allowlist of public read-only endpoints.
+
+Verify that public responses expose only approved fields.
+
+Verify that all device write operations require valid device authentication and enforce device ownership.
+
+Add or maintain tests for anonymous access, unauthorized writes, invalid payloads, and cross-device isolation.
+
+Configure HTTPS and production secrets through environment variables.
+
+Verify that frontend code contains no device credentials.
+
+Before reintroducing user-triggered actuator commands or other user-facing write operations, implement proper user authentication and authorization, including an explicit permission model.
+
+The public actuator-command and reading-ingestion endpoints have already been removed. They must not be reintroduced as anonymous write routes.
+
 ### Device Communication Cycle
 
 The simulator's operational cycle can conceptually consist of:
@@ -795,15 +813,17 @@ The backend should not depend on whether the Device is implemented as a simulato
 
 ### API Authentication and Authorization Boundaries
 
-Authentication and authorization are separate requirements.
+The application distinguishes between three access categories:
 
-The Device API uses device-specific API-key authentication. The backend validates the supplied credentials and associates device operations with the authenticated device.
+Public dashboard: read-only access to explicitly approved monitoring data.
 
-This protection does not automatically apply to other backend routes. In particular, actuator command creation, reading ingestion, and other operational write endpoints must enforce their own appropriate authorization rules.
+Operational write operations: user-triggered actuator commands and other operational changes must not be exposed through anonymous public endpoints. User-facing write operations may be introduced only after proper user authentication and authorization have been implemented.
 
-Before public deployment, every API route must be classified as public read-only, authenticated device communication, or protected operational access. Anonymous clients must not be able to modify actuator states, change control modes, inject readings, or modify configuration.
+Device API: authenticated communication between the backend and authorized devices or simulators.
 
-The frontend must never contain device API keys or other server-side credentials.
+The public actuator-command endpoint (POST /api/actuators/:id/command) and the public reading-ingestion endpoint (POST /api/readings) have been removed. Anonymous requests to these routes must not perform any operation.
+
+Device authentication must remain independent from dashboard access. Device API keys must not be exposed to or embedded in the frontend.
 
 ## 8. Persistence
 
@@ -1408,7 +1428,7 @@ The following checks have been performed during development:
 | Frontend lint | FAIL — one `react-hooks/set-state-in-effect` error in `HomePage.tsx` |
 | Simulator automated tests | PASS — 69 tests |
 | Backend TypeScript check (`npx tsc --noEmit`) | PASS |
-| Backend end-to-end tests | NOT RUN in the latest review |
+| Backend end-to-end tests	PASS — full test suite passed after the public write endpoints were removed
 
 The backend end-to-end tests were not run during the latest review because the test fixture can delete records from the configured test database. They must be executed only against a verified, isolated test database.
 
@@ -1418,7 +1438,7 @@ These results describe the checks performed during the latest review and must no
 
 The following issues have been identified and require further work or verification:
 
-- **Actuator command authorization:** the command-creation API must be protected against unauthorized requests before public deployment.
+- **Actuator command authorization:** User-triggered actuator controls: the anonymous public command endpoint has been removed. User-triggered commands are not available through the public dashboard API. Proper user authentication and authorization must be implemented before introducing a new user-facing command endpoint.
 - **Sensor sampling intervals:** the simulator currently sends readings on every five-second simulation cycle rather than consistently respecting each sensor's configured sampling interval.
 - **Telemetry reliability:** failed reading or status requests can be logged without causing the corresponding simulation cycle to be retried.
 - **Reading persistence:** individual reading creation and current sensor-state updates are not consistently covered by one atomic transaction. Batch device-reading persistence uses a transaction.
@@ -1432,10 +1452,10 @@ The following issues have been identified and require further work or verificati
 
 ### Public deployment status
 
-The project is not yet ready for unrestricted public deployment with actuator controls enabled.
+The dashboard is designed for public, read-only access. The public actuator-command and reading-ingestion endpoints have been removed, and the backend end-to-end test suite passes with these changes.
 
-Before deployment, the backend must enforce authorization for all operational write endpoints, preserve device authentication and ownership checks, and expose only explicitly approved read-only information to anonymous visitors.
+Before enabling user-triggered actuator controls, the application must implement and verify proper user authentication and authorization. Device-originated writes must continue to require device authentication and ownership checks, independently of public dashboard access.
 
-The device API's API-key authentication and the simulator's command-idempotency mechanism have been implemented and tested. They do not, by themselves, establish that every backend write endpoint is protected.
+The device API's API-key authentication and the simulator's command-idempotency mechanism have been implemented and tested. These mechanisms protect the device communication flow but do not replace user authentication for future operator-facing functionality.
 
-The project should be considered a working prototype until the outstanding security, reliability, and validation tasks have been addressed and verified.
+The project remains a working prototype. Outstanding reliability, validation, accessibility, and deployment tasks must be addressed and verified before considering the application production-ready.

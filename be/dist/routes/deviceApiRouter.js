@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const deviceController_js_1 = require("../controllers/deviceController.js");
+const readingController_js_1 = require("../controllers/readingController.js");
+const commandController_js_1 = require("../controllers/commandController.js");
+const deviceAuth_js_1 = require("../middlewares/deviceAuth.js");
+const weatherController_js_1 = require("../controllers/weatherController.js");
+const router = (0, express_1.Router)();
+router.use(deviceAuth_js_1.deviceAuth);
+router.post("/weather", weatherController_js_1.receiveExternalWeather);
+router.post("/heartbeat", deviceController_js_1.heartbeat);
+router.post("/readings", readingController_js_1.createFromDevice);
+router.get("/commands", commandController_js_1.getPending);
+router.post("/command-results", commandController_js_1.commandResult);
+router.post("/status", deviceController_js_1.updateStatus);
+router.get("/config", deviceController_js_1.getConfig);
+exports.default = router;

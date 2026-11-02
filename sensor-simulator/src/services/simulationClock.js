@@ -2,13 +2,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DATA_DIR } from "../config/dataDirectory.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_STATE_PATH = path.resolve(
-    __dirname,
-    "../../data/simulation-clock-state.json"
+const DEFAULT_STATE_PATH = path.join(
+    DATA_DIR,
+    "simulation-clock-state.json"
 );
 
 export const SIMULATION_SPEEDS = [1, 12];

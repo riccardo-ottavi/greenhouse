@@ -1,3 +1,4 @@
+
 CREATE TABLE readings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     sensor_id INT NOT NULL,
