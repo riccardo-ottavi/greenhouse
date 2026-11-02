@@ -2,6 +2,7 @@
 import './App.scss'
 import SensorsPage from './pages/SensorsPage';
 import SensorDetailPage from './pages/SensorDetailPage';
+import ActuatorDetailPage from './pages/ActuatorDetailPage';
 import ActuatorsPage from './pages/ActuatorsPage';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -53,9 +54,8 @@ function App() {
 
           <Route
             path="devices/:id/actuators/:actuatorId"
-            element={<ComingSoonPage title="Actuator Detail" />}
+            element={<ActuatorDetailPage />}
           />
-
           <Route
             path="devices/:id/trends"
             element={<ComingSoonPage title="Trends" />}
