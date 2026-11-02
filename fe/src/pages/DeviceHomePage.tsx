@@ -17,6 +17,7 @@ const DEVICE_REFRESH_INTERVAL = 5000;
 
 export default function DeviceHomePage() {
     const { id } = useParams();
+    const deviceId = Number(id);
 
     const [sensors, setSensors] = useState<Sensor[]>([]);
     const [actuators, setActuators] = useState<Actuator[]>([]);
@@ -87,6 +88,7 @@ export default function DeviceHomePage() {
                             <SensorOverviewCard
                                 key={sensor.id}
                                 sensor={sensor}
+                                deviceId={deviceId}
                                 alert={environmentalAlerts.find(
                                     (item) => item.sensorId === sensor.id
                                 )}
