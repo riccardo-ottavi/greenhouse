@@ -1,15 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DATA_DIR } from "../config/dataDirectory.js";
 
 import simulationConfig from "../config/simulationConfig.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DEFAULT_STATE_PATH = path.resolve(
-    __dirname,
-    "../../data/photoperiod-state.json"
+const DEFAULT_STATE_PATH = path.join(
+    DATA_DIR,
+    "photoperiod-state.json"
 );
 
 const DEFAULT_TIME_ZONE = simulationConfig.location.timezone;

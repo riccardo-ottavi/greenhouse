@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const sensorController_js_1 = require("../controllers/sensorController.js");
+const readingController_js_1 = require("../controllers/readingController.js");
+const router = (0, express_1.Router)();
+router.get("/", sensorController_js_1.index);
+router.get("/:sensorId/readings", readingController_js_1.getBySensorId);
+router.get("/:id", sensorController_js_1.show);
+exports.default = router;

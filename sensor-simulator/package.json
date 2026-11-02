@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --experimental-vm-modules .\\node_modules\\jest\\bin\\jest.js"
-  },
+  "start": "node src/index.js",
+  "test": "node --experimental-vm-modules .\\node_modules\\jest\\bin\\jest.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
