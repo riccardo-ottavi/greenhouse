@@ -1,5 +1,5 @@
 import { AppError } from "../errors/AppError";
-import { createDeviceReadings, createReading, getAllReadings, getReadingById, getReadingsBySensorId } from "../services/readingService";
+import { createDeviceReadings, createReading, getAllReadings, getReadingById, getReadingsBySensorId, getReadingsAggregateBySensorId } from "../services/readingService";
 import { Request, Response } from "express";
 
 export async function index(
@@ -46,7 +46,24 @@ export async function getBySensorId(
 ): Promise<void> {
   const sensorId = Number(req.params.sensorId);
 
-  const readings = await getReadingsBySensorId(sensorId);
+  const range = req.query.range
+    ? String(req.query.range)
+    : "24h";
+
+  const limit = req.query.limit
+    ? Number(req.query.limit)
+    : 500;
+
+  const cursor = req.query.cursor
+    ? String(req.query.cursor)
+    : undefined;
+
+  const readings = await getReadingsBySensorId(
+    sensorId,
+    range as "24h" | "7d" | "all",
+    limit,
+    cursor
+  );
 
   res.json(readings);
 }
@@ -67,4 +84,22 @@ export async function createFromDevice(
   });
 
   res.status(201).json(readings);
+}
+
+export async function getAggregateBySensorId(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const sensorId = Number(req.params.sensorId);
+
+  const range = req.query.range
+    ? String(req.query.range)
+    : "24h";
+
+  const aggregate = await getReadingsAggregateBySensorId(
+    sensorId,
+    range as "24h" | "7d" | "all"
+  );
+
+  res.json(aggregate);
 }

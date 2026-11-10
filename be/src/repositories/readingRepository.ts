@@ -1,7 +1,8 @@
 import { db } from "../database/connection.js";
 import {
   Reading,
-  ReadingUnit
+  ReadingUnit,
+  ReadingHistoryQuery
 } from "../types/Reading.js";
 import { SensorType } from "../types/Sensor.js";
 import type { PoolConnection } from "mysql2/promise";
@@ -70,8 +71,34 @@ export async function getSensorById(
 }
 
 export async function getReadingsBySensorId(
-  sensorId: number
+  query: ReadingHistoryQuery
 ): Promise<Reading[]> {
+  const conditions = ["sensor_id = ?"];
+  const values: (number | Date)[] = [query.sensorId];
+
+  if (query.from) {
+    conditions.push("timestamp >= ?");
+    values.push(query.from);
+  }
+
+  if (query.cursor) {
+    conditions.push(`
+      (
+        timestamp < ?
+        OR (
+          timestamp = ?
+          AND id < ?
+        )
+      )
+    `);
+
+    values.push(
+      query.cursor.timestamp,
+      query.cursor.timestamp,
+      query.cursor.id
+    );
+  }
+
   const [rows] = await db.query(
     `
       SELECT
@@ -81,10 +108,14 @@ export async function getReadingsBySensorId(
         unit,
         timestamp
       FROM readings
-      WHERE sensor_id = ?
-      ORDER BY timestamp DESC
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY timestamp DESC, id DESC
+      LIMIT ?
     `,
-    [sensorId]
+    [
+      ...values,
+      query.limit
+    ]
   );
 
   return rows as Reading[];
@@ -235,4 +266,80 @@ export async function updateSensorCurrentValueWithConnection(
       sensorId
     ]
   );
+}
+
+export async function getReadingTimeBounds(
+  sensorId: number
+): Promise<{ firstAt: Date; lastAt: Date } | undefined> {
+  const [rows] = await db.query(
+    `
+      SELECT
+        MIN(timestamp) AS first_at,
+        MAX(timestamp) AS last_at
+      FROM readings
+      WHERE sensor_id = ?
+    `,
+    [sensorId]
+  );
+
+  const row = (rows as {
+    first_at: Date | null;
+    last_at: Date | null;
+  }[])[0];
+
+  if (!row || !row.first_at || !row.last_at) {
+    return undefined;
+  }
+
+  return {
+    firstAt: row.first_at,
+    lastAt: row.last_at
+  };
+}
+
+export async function getReadingsAggregate(
+  sensorId: number,
+  from: Date | undefined,
+  bucketSeconds: number
+): Promise<{
+  timestamp: Date;
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+  sample_count: number;
+}[]> {
+  const conditions = ["sensor_id = ?"];
+  const values: (number | Date)[] = [sensorId];
+
+  if (from) {
+    conditions.push("timestamp >= ?");
+    values.push(from);
+  }
+
+  const [rows] = await db.query(
+    `
+      SELECT
+        FLOOR(
+          TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', timestamp) / ?
+        ) AS bucket,
+        MIN(timestamp) AS timestamp,
+        AVG(value) AS avg_value,
+        MIN(value) AS min_value,
+        MAX(value) AS max_value,
+        COUNT(*) AS sample_count
+      FROM readings
+      WHERE ${conditions.join(" AND ")}
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `,
+    [bucketSeconds, ...values]
+  );
+
+  return rows as {
+    timestamp: Date;
+    avg_value: number;
+    min_value: number;
+    max_value: number;
+    sample_count: number;
+  }[];
 }

@@ -9,7 +9,156 @@ import {
     seedTestDatabase
 } from "./fixtures/database.js";
 
+async function getTemperatureSensorId(): Promise<number> {
+    const sensorsResponse = await request(app).get("/api/sensors");
+
+    const sensor = sensorsResponse.body.find(
+        (item: { type: string }) => item.type === "TEMPERATURE"
+    );
+
+    expect(sensor).toBeDefined();
+
+    return sensor.id;
+}
+
+async function insertReading(
+    sensorId: number,
+    value: number,
+    timestamp: Date
+): Promise<void> {
+    await db.query(
+        `
+    INSERT INTO readings (sensor_id, value, unit, timestamp)
+    VALUES (?, ?, ?, ?)
+    `,
+        [sensorId, value, "°C", timestamp]
+    );
+}
+
 describe("Readings API", () => {
+
+    it("GET /api/sensors/:sensorId/readings should return a paginated response", async () => {
+        const sensorId = await getTemperatureSensorId();
+        const now = Date.now();
+
+        await insertReading(sensorId, 20, new Date(now - 3 * 60_000));
+        await insertReading(sensorId, 21, new Date(now - 2 * 60_000));
+        await insertReading(sensorId, 22, new Date(now - 1 * 60_000));
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "all", limit: 2 });
+
+        expect(response.status).toBe(200);
+        expect(response.body.readings).toHaveLength(2);
+        expect(response.body.hasMore).toBe(true);
+        expect(response.body.nextCursor).toEqual(expect.any(String));
+
+        expect(response.body.readings.map(
+            (reading: { value: number }) => reading.value
+        )).toEqual([22, 21]);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return the next page using the cursor", async () => {
+        const sensorId = await getTemperatureSensorId();
+        const now = Date.now();
+
+        await insertReading(sensorId, 20, new Date(now - 3 * 60_000));
+        await insertReading(sensorId, 21, new Date(now - 2 * 60_000));
+        await insertReading(sensorId, 22, new Date(now - 1 * 60_000));
+
+        const firstPage = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "all", limit: 2 });
+
+        expect(firstPage.status).toBe(200);
+        expect(firstPage.body.hasMore).toBe(true);
+
+        const secondPage = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({
+                range: "all",
+                limit: 2,
+                cursor: firstPage.body.nextCursor
+            });
+
+        expect(secondPage.status).toBe(200);
+        expect(secondPage.body.readings).toHaveLength(1);
+        expect(secondPage.body.hasMore).toBe(false);
+        expect(secondPage.body.nextCursor).toBeNull();
+
+        expect(secondPage.body.readings[0].value).toBe(20);
+
+        const firstPageIds = firstPage.body.readings.map(
+            (reading: { id: number }) => reading.id
+        );
+
+        const secondPageIds = secondPage.body.readings.map(
+            (reading: { id: number }) => reading.id
+        );
+
+        expect(firstPageIds).not.toContain(secondPageIds[0]);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should filter readings by the last 24 hours", async () => {
+        const sensorId = await getTemperatureSensorId();
+        const now = Date.now();
+
+        await insertReading(sensorId, 18, new Date(now - 25 * 60 * 60 * 1000));
+        await insertReading(sensorId, 23, new Date(now - 1 * 60 * 60 * 1000));
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "24h", limit: 10 });
+
+        expect(response.status).toBe(200);
+        expect(response.body.readings).toHaveLength(1);
+        expect(response.body.readings[0].value).toBe(23);
+        expect(response.body.hasMore).toBe(false);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid range", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "invalid" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid limit", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "all", limit: 0 });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid cursor", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({
+                range: "all",
+                limit: 10,
+                cursor: "not-a-valid-cursor"
+            });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 404 for an unknown sensor", async () => {
+        const response = await request(app)
+            .get("/api/sensors/999999/readings")
+            .query({ range: "all", limit: 10 });
+
+        expect(response.status).toBe(404);
+    });
+
     beforeEach(async () => {
         await resetTestDatabase();
         await seedTestDatabase();
@@ -162,5 +311,106 @@ describe("Readings API", () => {
 
         expect(sensorResponse.status).toBe(200);
         expect(sensorResponse.body.currentValue).toBe(26.5);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return the next page using the cursor", async () => {
+        const sensorId = await getTemperatureSensorId();
+        const now = Date.now();
+
+        await insertReading(sensorId, 20, new Date(now - 3 * 60_000));
+        await insertReading(sensorId, 21, new Date(now - 2 * 60_000));
+        await insertReading(sensorId, 22, new Date(now - 1 * 60_000));
+
+        const firstPage = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "all", limit: 2 });
+
+        expect(firstPage.status).toBe(200);
+        expect(firstPage.body.hasMore).toBe(true);
+
+        const secondPage = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({
+                range: "all",
+                limit: 2,
+                cursor: firstPage.body.nextCursor
+            });
+
+        expect(secondPage.status).toBe(200);
+        expect(secondPage.body.readings).toHaveLength(1);
+        expect(secondPage.body.hasMore).toBe(false);
+        expect(secondPage.body.nextCursor).toBeNull();
+
+        expect(secondPage.body.readings[0].value).toBe(20);
+
+        const firstPageIds = firstPage.body.readings.map(
+            (reading: { id: number }) => reading.id
+        );
+
+        const secondPageIds = secondPage.body.readings.map(
+            (reading: { id: number }) => reading.id
+        );
+
+        expect(firstPageIds).not.toContain(secondPageIds[0]);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should filter readings by the last 24 hours", async () => {
+        const sensorId = await getTemperatureSensorId();
+        const now = Date.now();
+
+        await insertReading(sensorId, 18, new Date(now - 25 * 60 * 60 * 1000));
+        await insertReading(sensorId, 23, new Date(now - 1 * 60 * 60 * 1000));
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "24h", limit: 10 });
+
+        expect(response.status).toBe(200);
+        expect(response.body.readings).toHaveLength(1);
+        expect(response.body.readings[0].value).toBe(23);
+        expect(response.body.hasMore).toBe(false);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid range", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "invalid" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid limit", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({ range: "all", limit: 0 });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 400 for an invalid cursor", async () => {
+        const sensorId = await getTemperatureSensorId();
+
+        const response = await request(app)
+            .get(`/api/sensors/${sensorId}/readings`)
+            .query({
+                range: "all",
+                limit: 10,
+                cursor: "not-a-valid-cursor"
+            });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("GET /api/sensors/:sensorId/readings should return 404 for an unknown sensor", async () => {
+        const response = await request(app)
+            .get("/api/sensors/999999/readings")
+            .query({ range: "all", limit: 10 });
+
+        expect(response.status).toBe(404);
+
     });
 });
