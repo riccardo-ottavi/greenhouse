@@ -13,6 +13,8 @@ import { getReadingsBySensor } from "../api/sensor";
 import type { Reading } from "../types/Reading";
 import type { Sensor } from "../types/Sensor";
 
+const OVERVIEW_READINGS = 200;
+
 interface TrendOverviewProps {
     sensors: Sensor[];
 }
@@ -34,54 +36,57 @@ export default function TrendOverview({
         : sensors[0]?.id ?? null;
 
     useEffect(() => {
-    if (effectiveSelectedSensorId === null) {
-        return;
-    }
-
-    const sensorId = effectiveSelectedSensorId;
-
-    let cancelled = false;
-    let isInitialLoad = true;
-
-    async function loadReadings() {
-        if (isInitialLoad) {
-            setLoading(true);
+        if (effectiveSelectedSensorId === null) {
+            return;
         }
 
-        try {
-            const data = await getReadingsBySensor(sensorId);
+        const sensorId = effectiveSelectedSensorId;
 
-            if (!cancelled) {
-                setReadings(data);
-                setError(null);
+        let cancelled = false;
+        let isInitialLoad = true;
+
+        async function loadReadings() {
+            if (isInitialLoad) {
+                setLoading(true);
             }
-        } catch (err) {
-            if (!cancelled) {
-                setError(
-                    err instanceof Error
-                        ? err.message
-                        : "Unable to load readings"
-                );
-            }
-        } finally {
-            if (!cancelled && isInitialLoad) {
-                setLoading(false);
-                isInitialLoad = false;
+
+            try {
+                const data = await getReadingsBySensor(sensorId, {
+                    range: "24h",
+                    limit: OVERVIEW_READINGS,
+                });
+
+                if (!cancelled) {
+                    setReadings(data.readings);
+                    setError(null);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "Unable to load readings"
+                    );
+                }
+            } finally {
+                if (!cancelled && isInitialLoad) {
+                    setLoading(false);
+                    isInitialLoad = false;
+                }
             }
         }
-    }
 
-    void loadReadings();
-
-    const intervalId = window.setInterval(() => {
         void loadReadings();
-    }, 5000);
 
-    return () => {
-        cancelled = true;
-        window.clearInterval(intervalId);
-    };
-}, [effectiveSelectedSensorId]);
+        const intervalId = window.setInterval(() => {
+            void loadReadings();
+        }, 5000);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+        };
+    }, [effectiveSelectedSensorId]);
 
     const selectedSensor = sensors.find(
         (sensor) => sensor.id === effectiveSelectedSensorId
@@ -204,7 +209,7 @@ export default function TrendOverview({
                         </div>
 
                         <p className="trend-reading-count">
-                            {readings.length} readings
+                            Latest {readings.length} readings
                         </p>
                     </>
                 )}
