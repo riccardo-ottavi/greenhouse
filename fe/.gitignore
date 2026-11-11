@@ -7,6 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .env
+data/photoperiod-state.corrupted-*.json
+data/photoperiod-state.corrupted-backup.json
 
 node_modules
 dist

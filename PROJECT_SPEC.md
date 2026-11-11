@@ -1,5 +1,20 @@
 # Greenhouse Monitoring System
 
+## Project Goals
+
+Greenhouse Monitoring System is a portfolio project that demonstrates an
+end-to-end IoT architecture: a simulated device, a REST backend, a MySQL
+database and a React dashboard. It is designed to be explored publicly
+without an account (read-only), while all write operations are protected.
+
+**In scope:** simulated sensors and actuators, automatic control rules,
+persistent commands with idempotent execution, environmental alerts,
+historical charts, device API-key authentication, session-based user
+authentication for operator actions.
+
+**Out of scope (for now):** real hardware (ESP32), multi-user roles,
+notifications, alert acknowledgement, retention policies.
+
 ## 1. Simulated Sensors
 
 The virtual device will simulate four types of sensors, chosen to represent the main environmental conditions of a greenhouse without introducing unnecessary complexity. The sensors will be air temperature, measured in °C and physically represented by the SHT31 sensor, relative air humidity, measured in % and also physically represented by the SHT31, soil moisture, measured in % and physically represented by an analog soil moisture sensor, and light intensity, measured in lux and physically represented by the BH1750 sensor.
@@ -41,6 +56,42 @@ Sensors will support three possible operational states:
 - ERROR — the sensor is not functioning correctly or cannot produce a valid reading.
 
 Operational status describes the health and availability of the sensor and does not represent an abnormal environmental condition.
+
+## Reading History API
+
+`GET /api/sensors/:sensorId/readings` returns raw readings, newest first,
+with cursor pagination. Query parameters: `range` (`24h` default, `7d`,
+`all`), `limit` (default 500, max 1000), `cursor` (opaque, from the previous
+response). Response: `{ readings, nextCursor, hasMore }`.
+
+`GET /api/sensors/:sensorId/readings/aggregate?range=24h|7d|all` returns
+readings grouped into time buckets, oldest first: `{ range, bucketSeconds,
+points: [{ timestamp, avg, min, max, count }] }`. The backend picks the
+smallest bucket (5 min to 1 day) that keeps the series under about 400
+points, so every range stays small. Results are cached for 30 seconds.
+Buckets are computed with `TIMESTAMPDIFF` and do not depend on the MySQL
+session time zone.
+
+Queries are served by the composite index
+`idx_readings_sensor_timestamp_id (sensor_id, timestamp, id)` (migration 020).
+The dashboard uses the aggregate endpoint for charts (refreshed every 60 s)
+and the paginated endpoint for the latest-readings overview.
+
+**Known limitation:** `range=all` scans every reading of the sensor. With
+millions of rows per sensor a pre-aggregated table or a retention policy
+will be required.
+
+### Public read-only endpoints
+GET /api/devices, /api/devices/:id, /api/devices/:id/sensors, /api/devices/:id/actuators
+GET /api/sensors, /api/sensors/:id, /api/sensors/:sensorId/readings, /api/sensors/:sensorId/readings/aggregate
+GET /api/actuators, /api/actuators/:id
+GET /api/environmental-alerts, /api/weather
+
+### Authenticated (session + CSRF)
+POST /api/actuators/:id/command, POST /api/auth/logout
+
+### Device API (API key)
+/api/device/{heartbeat, readings, commands, command-results, status, config, weather}
 
 ### Environmental Warnings and Alerts
 

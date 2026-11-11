@@ -19,7 +19,7 @@ The numeric prefix establishes the intended execution order.
 
 ## Current Migration History
 
-The repository currently contains migrations `001` through `018`, covering:
+The repository currently contains migrations `001` through `020`, covering:
 
 - Sensors and initial sensor data.
 - Sensor readings and sample readings.
